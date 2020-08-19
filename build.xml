@@ -1,0 +1,127 @@
+<project name="solgeneossample" default="dist" basedir="." >
+
+
+    <!-- Read property files -->
+	<target name="readProperties">
+		<property file="${basedir}/build.properties"/>
+	</target>
+
+	<!-- Setup Staging directory -->
+	<target name="setupStaging" depends="readProperties">
+		<mkdir dir="${basedir}/${dist.dir.name}/config"/>
+		<mkdir dir="${basedir}/${dist.dir.name}/lib"/>
+
+		<copy todir="${basedir}/${dist.dir.name}/config">
+		    <fileset dir="${basedir}/config"/>
+        </copy>
+		<!-- Only include libraries required by the monitors in the bundledLib directory -->
+		<copy todir="${basedir}/${dist.dir.name}/lib">
+		    <fileset dir="${basedir}/lib/bundledLib">
+		    	<include name="*.jar"/>
+		    </fileset>
+        </copy>
+	</target>
+
+
+	<!-- initializes -->
+	<target name="init" depends="readProperties">
+
+		<!-- Setup staging -->
+		<antcall target="setupStaging"/>
+
+		<!-- Copy source to temp -->
+		<!-- This is an opportunity to pre-process the java source files if we have to -->
+    	<copy todir="${basedir}/${tempsrc.dir.name}">
+    		<fileset dir="src">
+			</fileset>
+    	</copy>
+
+    	<mkdir dir="${basedir}/${output.dir.name}"/>
+
+		<!-- The classpath -->
+	    <path id="project.classpath">
+	        <fileset dir="${basedir}/${compilelib.dir}">
+	             <include name="*.jar"/>
+	        </fileset>
+	        <fileset dir="${basedir}/${bundledlib.dir}">
+	             <include name="*.jar"/>
+	        </fileset>
+	    </path>
+    </target>
+
+	<!-- compiles -->
+    <target name="compile" depends="init">
+    	<echo> Compiling...  </echo>
+        <javac  includeantruntime="false"
+				source="${compile.source}"
+        		target="${compile.target}"
+			    debug="${compile.debug}"
+        	    optimize="${compile.optimize}"
+        	    srcdir="${basedir}/${tempsrc.dir.name}" destdir="${basedir}/${output.dir.name}"
+        	    includes="" excludes="">
+            <classpath refid="project.classpath"/>
+        </javac>
+    </target>
+
+	<!-- cleans -->
+	<target name="clean" depends="readProperties" description="Clean output">
+		<delete dir="${basedir}/${dist.dir.name}"/>
+		<delete dir="${basedir}/${output.dir.name}"/>
+		<delete dir="${basedir}/${tempsrc.dir.name}"/>
+		<delete file="${scp.tracking.cachefile}"/>
+	</target>
+
+	<!-- build -->
+	<target name="build" depends="compile" description="Build monitor jars">
+		<echo>create ${jarname.users.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.users.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/*.class"/>
+			</fileset>
+		</jar>		
+		<echo>create ${jarname.util}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.util}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/util/*.class"/>
+			</fileset>
+		</jar>
+		<chmod perm="755">
+			<fileset dir="${basedir}/${dist.dir.name}/config"/>
+			<fileset dir="${basedir}/${dist.dir.name}/lib"/>
+		</chmod>
+	</target>
+
+	<!-- clean build for distribution -->
+	<target name="dist" depends="clean, build" description="Clean output and then build monitor jars">
+	</target>
+
+	<!-- copy the changed libs and configs to dev appliance -->
+	<!-- task depends on jsch-0.1.55.jar being available in ant/lib -->
+	<target name="deploy" depends="readProperties" description="Copy monitor jars to dev appliance">
+	
+		<input message="Please enter the password for ${dev.appliance.user} user:" addproperty="scp.pass">
+			<handler classname="org.apache.tools.ant.input.SecureInputHandler" />
+		</input>
+		
+		<echo>Copying modified jar files from ${basedir}/${dist.dir.name}/lib to dev appliance</echo>
+		<scp todir="${dev.appliance.user}@${dev.appliance.hostname}:${deploy.monitor.jars.dir}" trust="true" sftp="true" password="${scp.pass}">
+			<fileset dir="${basedir}/${dist.dir.name}/lib">
+				<include name="*.jar"/>
+				<modified>
+					<param name="cache.cachefile" value="${scp.tracking.cachefile}"/>
+				</modified>
+			</fileset>
+		</scp>
+		
+		<echo>Copying modified config files from ${basedir}/${dist.dir.name}/config to dev appliance</echo>
+		<scp todir="${dev.appliance.user}@${dev.appliance.hostname}:${deploy.monitor.configs.dir}" trust="true" sftp="true" password="${scp.pass}">
+			<fileset dir="${basedir}/${dist.dir.name}/config">
+				<include name="*.properties"/>
+				<modified>
+					<param name="cache.cachefile" value="${scp.tracking.cachefile}"/>
+				</modified>
+			</fileset>
+		</scp>
+	</target>
+
+</project>
