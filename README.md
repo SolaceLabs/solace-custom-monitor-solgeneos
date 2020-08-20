@@ -20,6 +20,27 @@ Enhancements over the original version include:
 * The ability to dynamically generate multiple dataviews from the same monitor, especially if the overall data needs to be segmented for different sets of Geneos users.
 * The introduction of a new "Multi Record SEMP Parser" that can be used in a generic fashion across different SEMP responses to extract the records of interest.
 
+## How to use this repository
+
+This project assumes you are familiar with custom monitor development already and have your environment setup with the sample java project provided in `solgeneossample` as described [here](https://docs.solace.com/SolGeneos-Agent/Monitor-Dev-and-Deployment.htm).
+
+The sample project uses the [Ant build tool](https://ant.apache.org/) to compile the sample code and generate the jar files for deployment on your event broker.
+The contents of this project exist within the directory structure of that sample. 
+
+More specifically: 
+- Java source code for the new monitors in this project can be found in `src/com/solacesystems/solgeneos/custommonitors`
+- The properties files to support the new monitors can be found in `config/`
+- The `build.xml` and `build.properties` files have been enhanced over the original sample to add a new task for monitor deployment to a 'dev' environment appliance
+
+To compile the source to build the necessary jar files for deployment, execute:
+`ant dist`
+while in the root of the project, assuming `ant` has been installed and ready on your machine with the executable in your `PATH`.
+
+To deploy to an appliance environment:
+- the contents of `_antDist/lib` should be copied to `/usr/sw/solgeneos/monitors`
+- the contents of `_antDist/config` should be copied to `/usr/sw/solgeneos/config`
+
+A restart of the `solgeneos` service will then activate the new monitors.
 
 ## Contributing
 
