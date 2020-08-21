@@ -7,6 +7,11 @@ While coming with a large number of [dataviews](https://docs.solace.com/SolGeneo
 
 This repository contains further examples of custom monitors that can support monitor development efforts by customers.
 
+:warning: Important Notice :warning: | 
+------------ | 
+Customer developed monitors and example code such as those in this project are not supported by Solace as part of the SolGeneos product support. | 
+
+
 ## Custom Monitors Index
 
 ### (1) UsersMonitor
