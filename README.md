@@ -14,7 +14,7 @@ Customer developed monitors and example code such as those in this project are n
 
 ## Custom Monitors Index
 
-### (1) UsersMonitor
+### (1) Users Monitor
 
 This monitor builds significantly on the [sample](https://docs.solace.com/SolGeneos-Agent/Creating-UsersMon.htm) of the same name provided provided with the SolGeneos product. 
 Enhancements over the original version include:
@@ -24,6 +24,28 @@ Enhancements over the original version include:
 * The use of a property file to control the behaviour of the monitor code and how data is presented
 * The ability to dynamically generate multiple dataviews from the same monitor, especially if the overall data needs to be segmented for different sets of Geneos users.
 * The introduction of a new "Multi Record SEMP Parser" that can be used in a generic fashion across different SEMP responses to extract the records of interest.
+
+
+### (2) QueuesEx Monitor
+
+This monitor is an extended version for monitoring queues, compared to the `Queues` monitor available in the product install.
+Enhancements over the original version include:
+
+* The addition of headline fields on the dataview containing information such total pending messages, total spool usage, count of queues with bound consumers, etc.
+  (Headlines are useful places to provide summary or aggregated information of the main dataview contents. These can then be referenced by dashboard elements too.) 
+* Configurable row limit for the dataview, maximum of 200 if unspecified.
+  (For large deployments, the original queues monitor would display _all queues_, that can run into several thousand rows. This would add load to the Geneos gateway and had the potential to impact monitoring by the netprobe being force suspended.)
+* Advanced sorting on the dataviews to show queues with the highest utilisation against its quota at the top. (A more meaningful sort than just looking at pending messages for example.) This coupled with the row-limit feature ensures the monitor acts to show queues that need attention, versus acting as an inventory view of all queues configured.
+* The ability to show all queues in a per-VPN dataview, switched on through configuration only. This supports efforts by middleware teams using the [Geneos Gateway Sharing](https://docs.itrsgroup.com/docs/geneos/5.2.0/Gateway_Reference_Guide/geneos_gatewaysharing_ug.html) feature to 'export' specific dataviews to application support team gateways. i.e. Faciliating a single installation of SolGeneos being able to push application specific monitoring to their respective support teams.
+* The addition of more queue details to facilitate advanced monitoring rules. e.g. The Oldest and Newest Message ID columns can have rules to alert cases where a queue is bound, yet consumption is not moving forward due to any poison message scenarios. 
+* The introduction of a new "Targeted Multi Record SEMP Parser" that can be used in a generic fashion across different SEMP queries to extract records of interest, with filters for the fields required to be returnd and excludes for sections to skip parsing. 
+
+Sample of the new headlines and columns available:
+![QueuesEx Combined Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/QueuesEx%20-%20Dataview%20Sample.png?raw=true)
+
+Sample of being able to create per-VPN views of the queues:
+
+![QueuesEx Per-VPN Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/QueuesEx%20-%20Per-VPN%20Dataviews.jpg?raw=true)
 
 ## How to use this repository
 
