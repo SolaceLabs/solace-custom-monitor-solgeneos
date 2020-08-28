@@ -144,6 +144,7 @@ public class MultiRecordSEMPParser extends SampleSEMPParser {
 
 	public Vector<Object> getFullTable() {
 		// Return a combined table of column names and content
+		@SuppressWarnings("unchecked")
 		Vector<Object> tempTableContent = (Vector<Object>) tableContent.clone();
 		tempTableContent.add(0, columnNames);
 		return tempTableContent;
