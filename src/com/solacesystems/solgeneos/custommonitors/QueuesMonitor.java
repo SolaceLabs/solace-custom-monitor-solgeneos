@@ -52,9 +52,9 @@ public class QueuesMonitor extends BaseMonitor implements MonitorConstants {
     // The elements of interest/exclusion within the SEMP response processing:
     static final private String RESPONSE_ELEMENT_NAME_ROWS = "queue";
     static final private  List<String> RESPONSE_COLUMNS = 
-    		Arrays.asList("RowUID", "name", "message-vpn", "durable", "ingress-config-status", "egress-config-status", "access-type", "owner", "quota", 		// 9
-    				"respect-ttl", "max-ttl", "reject-msg-to-sender-on-discard", "num-messages-spooled", "current-spool-usage-in-mb", "high-water-mark-in-mb", 	//15
-    				"total-delivered-unacked-msgs", "max-redelivery", "oldest-msg-id", "newest-msg-id", "bind-count", "max-bind-count", "dead-message-queue");	//22  
+    		Arrays.asList("RowUID", "name", "message-vpn", "durable", "ingress-config-status", "egress-config-status", "access-type", "owner", "quota", 
+    				"respect-ttl", "max-ttl", "reject-msg-to-sender-on-discard", "num-messages-spooled", "current-spool-usage-in-mb", "high-water-mark-in-mb",
+    				"total-delivered-unacked-msgs", "max-redelivery", "oldest-msg-id", "newest-msg-id", "bind-count", "max-bind-count", "dead-message-queue");
     // NOTE: "RowUID" is not expected in the SEMP response, but will be added by the parser. However adding it here allows this list to be used as an index where the column number can be searched by name
     
     static final private  List<String> RESPONSE_ELEMENT_NAMES_IGNORE = Arrays.asList("event", "clients");
@@ -106,6 +106,9 @@ public class QueuesMonitor extends BaseMonitor implements MonitorConstants {
     // A map of per view table contents and headlines
     private Map<String, Vector<Object>> tablesPerView = new HashMap();
     private Map<String, LinkedHashMap<String, Object>> headlinesPerView = new HashMap();
+    
+    // If multi-view mode and a view is to be deleted, cannot delete and clear it in one update. So need two samples for this, marking it for delete on the first sample.
+    List<String> viewMarkedForDelete = new ArrayList<String>();		
     
     // What is the configured name of the dataview?
     private String dataViewName = "";
@@ -390,21 +393,18 @@ public class QueuesMonitor extends BaseMonitor implements MonitorConstants {
 				headlines.put("Total Spool Usage (MB)", String.format(FLOAT_FORMAT_STYLE, sumSpoolUsage));
 				headlines.put("Total Queues Count", goodTableContent.size());
 				
-				// Does the dataset need to be truncated to the maxrow limit? If so, sort it first to show urgent cases of pending messages at the top
-				if (goodTableContent.size() > maxRows){
-					Vector<Object> tempTableContent = new Vector<Object>();
-					
-					tempTableContent.addAll(
-							goodTableContent
-							.stream()
-							.sorted(new QueuesComparator())
-							.limit(maxRows)				// Then cut the rows at max limit
-							.collect(Collectors.toCollection(Vector<Object>::new))
-							);
-					
-					goodTableContent = tempTableContent;
-			
-				}
+				// Sort the list to show entries needing attention near to the top. Then also limit to the max row count if exceeding it...
+				Vector<Object> tempTableContent = new Vector<Object>();
+				
+				tempTableContent.addAll(
+						goodTableContent
+						.stream()
+						.sorted(new QueuesComparator())
+						.limit(maxRows)				// Then cut the rows at max limit
+						.collect(Collectors.toCollection(Vector<Object>::new))
+						);
+				
+				goodTableContent = tempTableContent;
 				
 				// Pretty up the MB usage numbers. Get the value, format it, set it back. NOTE: Do it as close to the final step towards publishing the table
 			    for (Integer columnNumberToFormat : RESPONSE_NUMBER_FORMAT_COLUMN_NUMBERS) 
@@ -448,21 +448,17 @@ public class QueuesMonitor extends BaseMonitor implements MonitorConstants {
 			
 		}
 		
-		String viewName;
-		String markedForDelete = "";		// Cannot delete a view and clear it out in one update. So need to samples for this.
-		
 		// Now ready to publish each table to the available views... (Either one per VPN, or a default combined one.)
     	if (viewMap != null && viewMap.size() > 0) {
     		for (Iterator<String> viewIt = viewMap.keySet().iterator(); viewIt.hasNext();) 
     		{
     			
     			View view = viewMap.get(viewIt.next());
-    			viewName = view.getName();
     			
     			if (view.isActive()) {
     				
     				// Check if data available for the view. If none, then clear it and plan to delete it.
-    				if (tablesPerView.containsKey(viewName)) {
+    				if (tablesPerView.containsKey(view.getName())) {
     					view.setHeadlines(headlinesPerView.get(view.getName()));
         				view.setTableContent(tablesPerView.get(view.getName()));
     				}
@@ -474,16 +470,16 @@ public class QueuesMonitor extends BaseMonitor implements MonitorConstants {
     			}
     			else
     			{
-    				// Would have been inactive on a previous sample. Delete it now from the map.
-    				markedForDelete = viewName;
+    				// Would have been made inactive on a previous sample. Delete it now from the map.
+    				viewMarkedForDelete.add(view.getName());
     			}
     		}
     	}
     	
-    	if (multiview && !markedForDelete.equalsIgnoreCase(""))
+    	if (viewMarkedForDelete.size() > 0)
     	{
-    		viewMap.remove(markedForDelete);
-			markedForDelete = "";
+    		viewMarkedForDelete.forEach(view -> viewMap.remove(view));
+			viewMarkedForDelete.clear();
     	}
     	
         return State.REPORTING_QUEUE;
