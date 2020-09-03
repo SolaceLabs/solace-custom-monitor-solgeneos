@@ -25,11 +25,11 @@ Enhancements over the original version include:
 * The ability to dynamically generate multiple dataviews from the same monitor, especially if the overall data needs to be segmented for different sets of Geneos users.
 * The introduction of a new "Multi Record SEMP Parser" that can be used in a generic fashion across different SEMP responses to extract the records of interest.
 
+The aim of this particular monitor is to continue acting as a development sample, it's operational usefulness in a true monitoring enviromment is limited.
 
 ### (2) QueuesEx Monitor
 
-This monitor is an extended version for monitoring queues, compared to the `Queues` monitor available in the product install.
-Enhancements over the original version include:
+This monitor is an extended version for monitoring queues, compared to the `Queues` monitor available in the product install.  Enhancements over the original version include:
 
 * The addition of headline fields on the dataview containing information such total pending messages, total spool usage, count of queues with bound consumers, etc.
   (Headlines are useful places to provide summary or aggregated information of the main dataview contents. These can then be referenced by dashboard elements too.) 
@@ -46,6 +46,13 @@ Sample of the new headlines and columns available:
 Sample of being able to create per-VPN views of the queues:
 
 ![QueuesEx Per-VPN Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/QueuesEx%20-%20Per-VPN%20Dataviews.jpg?raw=true)
+
+### (3) TopicEndpointsEx Monitor
+
+This monitor is an extended version for monitoring topic endpoints, compared to the `TopicEndpoints` monitor available in the product install.  Enhancements over the original version include all those listed for the `QueuesEx` monitor mentioned above. This monitor is near identical in output to the extended queues monitor and thus provides the same new advantages.
+
+Sample of the new headlines and columns available:
+![TopicEndpointsEx Combined Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/TopicEndpointsEx%20-%20Dataview%20Sample.png?raw=true)
 
 ## How to use this repository
 
@@ -84,6 +91,7 @@ This project is licensed under the Apache License, Version 2.0. - See the [LICEN
 ## Resources
 
 For more information try these resources:
+- SolGeneos Monitor Development [Best Practices](https://docs.solace.com/SolGeneos-Agent/Best-Practices.htm)
 - Get a better understanding of [Solace Event Brokers](https://solace.com/products/event-broker/)
 - The Solace [Developer Portal](https://solace.dev)
 - Check out the [Solace blog](https://solace.com/blog/) for other interesting discussions around Solace technology
