@@ -9,8 +9,7 @@ This repository contains further examples of custom monitors that can support mo
 
 :warning: Important Notice :warning: | 
 ------------ | 
-Customer developed monitors and example code, such as those in this project, are not supported by Solace as part of the SolGeneos product support.
-Check out CONTRBUTING.MD to raise issues/bugs, submit fixes, request features, submit features, submit ideas, or to ask questions.  Responses will be 'best effort' from contributors. | 
+Customer developed monitors and example code, such as those in this project, are not supported by Solace as part of the SolGeneos product support. Check out CONTRBUTING.MD to raise issues/bugs, submit fixes, request features, submit features, submit ideas, or to ask questions.  Responses will be 'best effort' from contributors. | 
 
 
 ## Custom Monitors Index
