@@ -25,7 +25,7 @@ Enhancements over the original version include:
 * The ability to dynamically generate multiple dataviews from the same monitor, especially if the overall data needs to be segmented for different sets of Geneos users.
 * The introduction of a new "Multi Record SEMP Parser" that can be used in a generic fashion across different SEMP responses to extract the records of interest.
 
-The aim of this particular monitor is to continue acting as a development sample, it's operational usefulness in a true monitoring enviromment is limited.
+The aim of this particular monitor is to continue acting as a **development sample**, it's operational usefulness in a true monitoring enviromment is limited.
 
 ### (2) QueuesEx Monitor
 
