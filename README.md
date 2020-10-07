@@ -14,6 +14,14 @@ Customer developed monitors and example code, such as those in this project, are
 
 ## Custom Monitors Index
 
+No.  | Name | Function |
+---- | ---- | -------- |
+1 | [Users Monitor](#1-users-monitor) | List currently configured CLI and FTP users. Serves as a development sample. |
+2 | [QueuesEx Monitor](#2-queuesex-monitor) | Extended version of Queues monitor with several enhancements |
+3 | [TopicEndpointsEx Monitor](#3-topicendpointsex-monitor) | Extended version of TopicEndpoints monitor with several enhancements |
+4 | [MessageVPNRates Monitor](#4-messagevpnrates-monitor) | New monitor to display message and byte rate activity as well as identify top-talkers |
+
+
 ### (1) Users Monitor
 
 This monitor builds significantly on the [sample](https://docs.solace.com/SolGeneos-Agent/Creating-UsersMon.htm) of the same name provided provided with the SolGeneos product. 
@@ -55,7 +63,7 @@ Sample of the new headlines and columns available:
 ![TopicEndpointsEx Combined Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/TopicEndpointsEx%20-%20Dataview%20Sample.png?raw=true)
 
 
-### (3) MessageVPNRates Monitor
+### (4) MessageVPNRates Monitor
 
 This monitor provides new functionality to look at messaging activity at a per-VPN level as well as the aggregate across the whole broker.  It can be used in the context of capacity management to monitor the message or byte rate and alert if getting close to the known limits of the broker.
 
