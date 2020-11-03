@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
 import java.util.Vector;
@@ -21,6 +22,7 @@ import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.HttpParams;
 
+import com.solacesystems.solgeneos.custommonitors.util.RatesHWM;
 import com.solacesystems.solgeneos.custommonitors.util.MonitorConstants;
 import com.solacesystems.solgeneos.custommonitors.util.SampleHttpSEMPResponse;
 import com.solacesystems.solgeneos.custommonitors.util.SampleResponseHandler;
@@ -30,10 +32,10 @@ import com.solacesystems.solgeneos.solgeneosagent.UserPropertiesConfig;
 import com.solacesystems.solgeneos.solgeneosagent.monitor.BaseMonitor;
 import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 
-public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConstants {
+public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0";
+	static final public String MONITOR_VERSION = "1.1";
 	
 	// The SEMP query to execute:
     static final public String SHOW_USERS_REQUEST = 
@@ -83,13 +85,23 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
     		Arrays.asList("Message VPN",
     				"Current Msg Rate", "Average Msg Rate", "Current Byte Rate", "Average Byte Rate", 	// These will be computed (sum ingress and egress) and added as columns
     				
-    				"Current Ingress Msg Rate", "Current Egress Msg Rate", "Average Ingress Msg Rate", "Average Egress Msg Rate",
-    				"Current Ingress Byte Rate", "Current Egress Byte Rate", "Average Ingress Byte Rate", "Average Egress Byte Rate",
+    				"Current Ingress Msg Rate", "Current Egress Msg Rate", "Current Ingress Byte Rate", "Current Egress Byte Rate", 
+    				"Average Ingress Msg Rate", "Average Egress Msg Rate", "Average Ingress Byte Rate", "Average Egress Byte Rate",
     				
     				"Data Msgs Received", "Data Msgs Sent", "Data Msgs Received (Persistent)", "Data Msgs Sent (Persistent)", "Data Msgs Received (Non-Persistent)", "Data Msgs Sent (Non-Persistent)", "Data Msgs Received (Direct)", "Data Msgs Sent (Direct)",
     				"Data Bytes Received", "Data Bytes Sent", "Data Bytes Received (Persistent)", "Data Bytes Sent (Persistent)", "Data Bytes Received (Non-Persistent)", "Data Bytes Sent (Non-Persistent)", "Data Bytes Received (Direct)", "Data Bytes Sent (Direct)"
     				
     				);
+    
+    static final private List<String> HWM_DATAVIEW_COLUMN_NAMES = 
+    		Arrays.asList("High Water Mark Metric", "Timestamp", 
+    				"Current Msg Rate", "Current Ingress Msg Rate", "Current Egress Msg Rate",
+    				"Average Msg Rate", "Average Ingress Msg Rate", "Average Egress Msg Rate",
+    				"Current MByte Rate", "Current Ingress MByte Rate", "Current Egress MByte Rate",
+    				"Average MByte Rate", "Average Ingress MByte Rate", "Average Egress MByte Rate",
+    				"Top Talker VPN #1", "Top Talker VPN #2", "Top Talker VPN #3"
+    				);
+    
     static final private int COMPUTED_COLUMN_COUNT = 4;		// Knowing the size can be used to more efficiently call the constructor for the ArrayList<String>...
     
     static final private int BYTE_TO_MBYTE = 1048576;
@@ -102,6 +114,8 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
 
     private Vector<Object> receivedTableContent;
     private Vector<Object> tempTableContent;		// Used in the various stages of manipulating the received table
+    private Vector<Object> hwmTableContent;			// Used for the High Water Mark values display
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM = new LinkedHashMap<String, RatesHWM>();
     
     private LinkedHashMap<String, Object> globalHeadlines = new LinkedHashMap<String, Object>();
     // Is the monitor creating a dataview per VPN or everything is in one view?
@@ -150,6 +164,7 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
 		// (2) Add this monitor's important details as headlines
 		globalHeadlines.put("Custom Monitor", this.getName() + " v" + MONITOR_VERSION);
 		globalHeadlines.put("Sampling Interval (secs)", this.getSamplingRate());
+		globalHeadlines.put("Monitor Start Time", SolGeneosAgent.onlyInstance.getCurrentTimeString());
 		
 
 		// (3) Are there properties specific to this monitor in its config file?
@@ -178,7 +193,7 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
         }
         String username = props.getProperty(MGMT_USERNAME_PROPERTY_NAME);
         String password = SolGeneosAgent.onlyInstance.getEncryptedProperty(MGMT_ENCRYPTED_PASSWORD_PROPERTY_NAME,MGMT_PASSWORD_PROPERTY_NAME);
-        
+		
 		// create a http client
 		httpClient = new DefaultHttpClient();
 		HttpParams httpParams = httpClient.getParams();
@@ -199,6 +214,23 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
         // create SEMP parser with the name of the element that contains the records
 		multiRecordParser = new VPNRecordSEMPParser(RESPONSE_ELEMENT_NAME_ROWS, RESPONSE_COLUMNS, RESPONSE_ELEMENT_NAMES_IGNORE);
 		
+		// (5) Create the High Water Mark objects for each interested metric to do it for...
+		// Current entries are one per metric. In future there can be HWMs grouped by daily, weekly, all-time, variants of each metric. 
+		messageRatesHWM.put("Current Msg Rate", new RatesHWM(RatesHWM.Type.CURRENT_MSG_RATE));
+		messageRatesHWM.put("Current Ingress Msg Rate", new RatesHWM(RatesHWM.Type.CURRENT_INGRESS_MSG_RATE));
+		messageRatesHWM.put("Current Egress Msg Rate", new RatesHWM(RatesHWM.Type.CURRENT_EGRESS_MSG_RATE));
+		
+		messageRatesHWM.put("Average Msg Rate", new RatesHWM(RatesHWM.Type.AVERAGE_MSG_RATE));
+		messageRatesHWM.put("Average Ingress Msg Rate", new RatesHWM(RatesHWM.Type.AVERAGE_INGRESS_MSG_RATE));
+		messageRatesHWM.put("Average Egress Msg Rate", new RatesHWM(RatesHWM.Type.AVERAGE_EGRESS_MSG_RATE));
+		
+		messageRatesHWM.put("Current Mbyte Rate", new RatesHWM(RatesHWM.Type.CURRENT_MBYTE_RATE));
+		messageRatesHWM.put("Current Ingress Mbyte Rate", new RatesHWM(RatesHWM.Type.CURRENT_INGRESS_MBYTE_RATE));
+		messageRatesHWM.put("Current Egress Mbyte Rate", new RatesHWM(RatesHWM.Type.CURRENT_EGRESS_MBYTE_RATE));
+		
+		messageRatesHWM.put("Average Mbyte Rate", new RatesHWM(RatesHWM.Type.AVERAGE_MBYTE_RATE));
+		messageRatesHWM.put("Average Ingress Mbyte Rate", new RatesHWM(RatesHWM.Type.AVERAGE_INGRESS_MBYTE_RATE));
+		messageRatesHWM.put("Average Egress Mbyte Rate", new RatesHWM(RatesHWM.Type.AVERAGE_EGRESS_MBYTE_RATE));
 	}
         
 	/**
@@ -213,6 +245,7 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
 		TreeMap<String, View> viewMap = getViewMap();
 		
 		LinkedHashMap<String, Object> headlines;
+		LinkedHashMap<String, Object> headlinesHWM;
 		
 		// Construct table content
 		HttpPost post = new HttpPost(HTTP_REQUEST_URI);
@@ -268,7 +301,7 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
 			computedTableColumns.add(Integer.toString(ingressCurrentMsgRate + egressCurrentMsgRate) );
 			
 			int ingressAverageMsgRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Ingress Msg Rate") - COMPUTED_COLUMN_COUNT));
-			int egressAverageMsgRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Ingress Msg Rate") - COMPUTED_COLUMN_COUNT));
+			int egressAverageMsgRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Egress Msg Rate") - COMPUTED_COLUMN_COUNT));
 			computedTableColumns.add(Integer.toString(ingressAverageMsgRate + egressAverageMsgRate) );
 			
 			int ingressCurrentByteRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Ingress Byte Rate") - COMPUTED_COLUMN_COUNT));
@@ -287,8 +320,14 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
 		
 		// Now calculate the headlines
 		headlines = new LinkedHashMap<String, Object>();
-		headlines.putAll(globalHeadlines);		
-		headlines.put("Last Sample Time", SolGeneosAgent.onlyInstance.getCurrentTimeString());
+		headlines.putAll(globalHeadlines);	
+		
+		String lastSampleTime = SolGeneosAgent.onlyInstance.getCurrentTimeString();
+		headlines.put("Last Sample Time", lastSampleTime);
+		
+		headlinesHWM = new LinkedHashMap<String, Object>();
+		headlinesHWM.putAll(globalHeadlines);		
+		headlinesHWM.put("Last Sample Time", SolGeneosAgent.onlyInstance.getCurrentTimeString());
 		
 		// Build up some summary headlines on the data. 
 		
@@ -392,13 +431,14 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
 		headlines.put("Average MByte Rate (Ingress)", String.format(FLOAT_FORMAT_STYLE, averageByteRateIngress / BYTE_TO_MBYTE) );
 		headlines.put("Average MByte Rate (Egress)", String.format(FLOAT_FORMAT_STYLE, averageByteRateEgress / BYTE_TO_MBYTE) );
 		
+		
 		// Sort the list to show entries needing attention near to the top. Then also limit to the max row count if exceeding it...
 		Vector<Object> tempTableContent = new Vector<Object>();
 		
 		tempTableContent.addAll(
 				receivedTableContent
 				.stream()
-				.sorted(new RatesComparator())
+				.sorted(new RatesComparator())	// Currently highest average byte rate is at the top...
 				.limit(maxRows)				// Then cut the rows at max limit
 				.collect(Collectors.toCollection(Vector<Object>::new))
 				);
@@ -409,25 +449,56 @@ public class MessageVPNRatesMonitor extends BaseMonitor implements MonitorConsta
 			headlines.put("Top Talker #" + (i + 1), ((ArrayList<String>)receivedTableContent.get(i)).get(this.COLUMN_NAME_OVERRIDE.indexOf("Message VPN"))   );
 		}
 		
-		
-		// Table content all complete now for publishing. Just add the column names too.
+		// Top 3 Talkers just for the HWM dataview:
+		String topTalkerVPN1 = (receivedTableContent.size() > 0) ? ((ArrayList<String>)receivedTableContent.get(0)).get(this.COLUMN_NAME_OVERRIDE.indexOf("Message VPN")) : ""; 
+		String topTalkerVPN2 = (receivedTableContent.size() > 1) ? ((ArrayList<String>)receivedTableContent.get(1)).get(this.COLUMN_NAME_OVERRIDE.indexOf("Message VPN")) : ""; 
+		String topTalkerVPN3 = (receivedTableContent.size() > 2) ? ((ArrayList<String>)receivedTableContent.get(2)).get(this.COLUMN_NAME_OVERRIDE.indexOf("Message VPN")) : ""; 
+
+		// Main table content all complete now for publishing. Just add the column names too.
 		receivedTableContent.add(0, this.COLUMN_NAME_OVERRIDE);	// No longer as received from parser in receivedColumnNames
 		
-		// Now ready to publish table to the view map
+		// Setup HWM dataview table content too, column names first
+		hwmTableContent = new Vector<Object>();
+		hwmTableContent.add(0, this.HWM_DATAVIEW_COLUMN_NAMES);
+		
+		
+		// Submit the current rates to the HWM objects to update if higher than what is previously known:		
+		
+		for (Map.Entry<String, RatesHWM> entry : messageRatesHWM.entrySet()){
+			
+			entry.getValue().updateHWMs(lastSampleTime, currentMsgRate, currentMsgRateIngress, currentMsgRateEgress, 
+					averageMsgRate, averageMsgRateIngress, averageMsgRateEgress, 
+					currentByteRate / BYTE_TO_MBYTE, currentByteRateIngress / BYTE_TO_MBYTE, currentByteRateEgress / BYTE_TO_MBYTE,
+					averageByteRate / BYTE_TO_MBYTE, averageByteRateIngress / BYTE_TO_MBYTE, averageByteRateEgress / BYTE_TO_MBYTE,
+					topTalkerVPN1, topTalkerVPN2, topTalkerVPN3);			
+						
+			ArrayList<String> tempRow = entry.getValue().getHWMRow();
+			tempRow.add(0, entry.getKey());
+			hwmTableContent.add(tempRow);
+		}
+				
+		
+		// Now ready to publish tables to the view map
     	if (viewMap != null && viewMap.size() > 0) {
     		for (Iterator<String> viewIt = viewMap.keySet().iterator(); viewIt.hasNext();) 
     		{
-    			
-    			View view = viewMap.get(viewIt.next());
-    			
+    			View view = viewMap.get(viewIt.next());	
     			if (view.isActive()) {
-    					view.setHeadlines(headlines);
-        				view.setTableContent(receivedTableContent);
+    				switch (view.getName()) {
+						case "msgRates":
+							view.setHeadlines(headlines);
+	        				view.setTableContent(receivedTableContent);
+							break;
+						case "msgRatesHWM":
+							view.setHeadlines(headlinesHWM);
+							view.setTableContent(hwmTableContent);
+							break;
+						default:
+							// Do nothing
+    				}
     			}
     		}
     	}
-    	
         return State.REPORTING_QUEUE;
 	}
-
 }
