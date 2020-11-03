@@ -19,7 +19,7 @@ No.  | Name | Function |
 1 | [Users Monitor](#1-users-monitor) | List currently configured CLI and FTP users. Serves as a development sample. |
 2 | [QueuesEx Monitor](#2-queuesex-monitor) | Extended version of Queues monitor with several enhancements |
 3 | [TopicEndpointsEx Monitor](#3-topicendpointsex-monitor) | Extended version of TopicEndpoints monitor with several enhancements |
-4 | [MessageVPNRates Monitor](#4-messagevpnrates-monitor) | New monitor to display message and byte rate activity as well as identify top-talkers |
+4 | [MessageRates Monitor](#4-messagerates-monitor) | New monitor to display message and byte rate activity as well as identify top-talkers and track high water marks (HWMs) |
 
 
 ### (1) Users Monitor
@@ -63,21 +63,22 @@ Sample of the new headlines and columns available:
 ![TopicEndpointsEx Combined Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/TopicEndpointsEx%20-%20Dataview%20Sample.png?raw=true)
 
 
-### (4) MessageVPNRates Monitor
+### (4) MessageRates Monitor
 
-This monitor provides new functionality to look at messaging activity at a per-VPN level as well as the aggregate across the whole broker.  It can be used in the context of capacity management to monitor the message or byte rate and alert if getting close to the known limits of the broker.
+This monitor provides new functionality to look at messaging activity at a per-VPN level as well as the aggregate across the whole broker.  It can be used in the context of capacity management to monitor the message or byte rate and alert if getting close to the known limits of the broker. Furthermore, it tracks the high water mark (HWM) values for the broker-wide aggregates in a dedicated dataview called `MessageRatesHWM`.
 
 Features implemented in the monitor include:
 * Computed metrics for the message and data rate for a VPN to provide a simple indicator of activity and load on the shared-tenancy environment. (Computed by summing the ingress and egress metrics as provided by SEMP.)
 * Identification of the "Top Talkers" VPN names that are making up the messaging activity at the time of sample. (e.g. Those headline fields can populate dashboard elements to make it clear where any increase in activity or deviances from normal trend are originating from.) 
 * Computed metrics for a broker-wide view of messaging activity. (Computed by summing the individual VPN level stats to reach the full broker-wide metric.) 
+* Tracking of the previous peak value (i.e. high water mark) for each of the rate metrics to aid in capacity management by providing historical context to the current rate activity.
 * Similar to previous monitors in this repository, the implementation of a max-row count to limit the amount of data sent to the Geneos gateway and any load issues this may cause. A sorting is done to ensure the VPNs with the highest average byte rate is near the top before the dataview is truncated. (The broker-wide computed values continue to act on the full dataset of all VPNs configured on the broker.)
 
-Additional features that may be considered:
-* The tracking of high water mark rates for the broker-wide metrics such as average message rate and average MByte rate.
+Sample of the new headlines and columns available in the primary `MessageRates` dataview:
+![MessageRates Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRates%20-%20Dataview%20Sample.png?raw=true)
 
-Sample of the new headlines and columns available:
-![MessageVPNRates Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageVPNRates%20-%20Dataview%20Sample.png?raw=true)
+Sample of the high water mark (HWM) values that are tracked in the additional `MessageRatesHWM` dataview. Note that the full context of other rate metrics and top talkers at the time of the HWM rate is also retained for reference and context.
+![MessageRatesHWM Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample.png?raw=true)
 
 ## How to use this repository
 
