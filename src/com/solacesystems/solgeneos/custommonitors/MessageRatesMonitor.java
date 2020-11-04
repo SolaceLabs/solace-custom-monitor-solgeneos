@@ -1,11 +1,14 @@
 package com.solacesystems.solgeneos.custommonitors;
 
+import java.time.LocalDateTime;
+import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
@@ -38,7 +41,7 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 	static final public String MONITOR_VERSION = "1.1";
 	
 	// The SEMP query to execute:
-    static final public String SHOW_USERS_REQUEST = 
+    static final public String SHOW_VPN_RATES_REQUEST = 
             "<rpc>" + 
             "	<show>" +
             "		<message-vpn>" +
@@ -115,13 +118,21 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     private Vector<Object> receivedTableContent;
     private Vector<Object> tempTableContent;		// Used in the various stages of manipulating the received table
     private Vector<Object> hwmTableContent;			// Used for the High Water Mark values display
-    private LinkedHashMap<String, RatesHWM> messageRatesHWM = new LinkedHashMap<String, RatesHWM>();
+    
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_allTime = new LinkedHashMap<String, RatesHWM>();
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_daily = new LinkedHashMap<String, RatesHWM>();
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_weekly = new LinkedHashMap<String, RatesHWM>();
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_monthly = new LinkedHashMap<String, RatesHWM>();
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_yearly = new LinkedHashMap<String, RatesHWM>();
     
     private LinkedHashMap<String, Object> globalHeadlines = new LinkedHashMap<String, Object>();
     // Is the monitor creating a dataview per VPN or everything is in one view?
     // What is the maximum number of rows to limit the dataview to? Default 200 unless overridden.
     private int maxRows = 200;
 
+    private LocalDateTime sampleTime;
+
+    
     
     // When sorting the table rows before limiting to maxrows, how to prioritise the top of the cut?
     // This comparator is used to sort the table so the highest average message rate is at the top of the table
@@ -215,22 +226,59 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		multiRecordParser = new VPNRecordSEMPParser(RESPONSE_ELEMENT_NAME_ROWS, RESPONSE_COLUMNS, RESPONSE_ELEMENT_NAMES_IGNORE);
 		
 		// (5) Create the High Water Mark objects for each interested metric to do it for...
-		// Current entries are one per metric. In future there can be HWMs grouped by daily, weekly, all-time, variants of each metric. 
-		messageRatesHWM.put("Current Msg Rate", new RatesHWM(RatesHWM.Type.CURRENT_MSG_RATE));
-		messageRatesHWM.put("Current Ingress Msg Rate", new RatesHWM(RatesHWM.Type.CURRENT_INGRESS_MSG_RATE));
-		messageRatesHWM.put("Current Egress Msg Rate", new RatesHWM(RatesHWM.Type.CURRENT_EGRESS_MSG_RATE));
+		// Current entries are one per metric. Then each for the different groupings will be created (all-time, daily, weekly, yearly) 
 		
-		messageRatesHWM.put("Average Msg Rate", new RatesHWM(RatesHWM.Type.AVERAGE_MSG_RATE));
-		messageRatesHWM.put("Average Ingress Msg Rate", new RatesHWM(RatesHWM.Type.AVERAGE_INGRESS_MSG_RATE));
-		messageRatesHWM.put("Average Egress Msg Rate", new RatesHWM(RatesHWM.Type.AVERAGE_EGRESS_MSG_RATE));
+		LinkedHashMap<String, RatesHWM.Type> tempHWMNames = new LinkedHashMap<String, RatesHWM.Type>();
 		
-		messageRatesHWM.put("Current Mbyte Rate", new RatesHWM(RatesHWM.Type.CURRENT_MBYTE_RATE));
-		messageRatesHWM.put("Current Ingress Mbyte Rate", new RatesHWM(RatesHWM.Type.CURRENT_INGRESS_MBYTE_RATE));
-		messageRatesHWM.put("Current Egress Mbyte Rate", new RatesHWM(RatesHWM.Type.CURRENT_EGRESS_MBYTE_RATE));
+		tempHWMNames.put("Current Msg Rate", RatesHWM.Type.CURRENT_MSG_RATE);
+		tempHWMNames.put("Current Ingress Msg Rate", RatesHWM.Type.CURRENT_INGRESS_MSG_RATE);
+		tempHWMNames.put("Current Egress Msg Rate", RatesHWM.Type.CURRENT_EGRESS_MSG_RATE);
 		
-		messageRatesHWM.put("Average Mbyte Rate", new RatesHWM(RatesHWM.Type.AVERAGE_MBYTE_RATE));
-		messageRatesHWM.put("Average Ingress Mbyte Rate", new RatesHWM(RatesHWM.Type.AVERAGE_INGRESS_MBYTE_RATE));
-		messageRatesHWM.put("Average Egress Mbyte Rate", new RatesHWM(RatesHWM.Type.AVERAGE_EGRESS_MBYTE_RATE));
+		tempHWMNames.put("Average Msg Rate", RatesHWM.Type.AVERAGE_MSG_RATE);
+		tempHWMNames.put("Average Ingress Msg Rate", RatesHWM.Type.AVERAGE_INGRESS_MSG_RATE);
+		tempHWMNames.put("Average Egress Msg Rate", RatesHWM.Type.AVERAGE_EGRESS_MSG_RATE);
+		
+		tempHWMNames.put("Current MByte Rate", RatesHWM.Type.CURRENT_MBYTE_RATE);
+		tempHWMNames.put("Current Ingress MByte Rate", RatesHWM.Type.CURRENT_INGRESS_MBYTE_RATE);
+		tempHWMNames.put("Current Egress MByte Rate", RatesHWM.Type.CURRENT_EGRESS_MBYTE_RATE);
+		
+		tempHWMNames.put("Average MByte Rate", RatesHWM.Type.AVERAGE_MBYTE_RATE);
+		tempHWMNames.put("Average Ingress MByte Rate", RatesHWM.Type.AVERAGE_INGRESS_MBYTE_RATE);
+		tempHWMNames.put("Average Egress MByte Rate", RatesHWM.Type.AVERAGE_EGRESS_MBYTE_RATE);
+		
+		// Create the all-time ones:
+		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+			messageRatesHWM_allTime.put(entry.getKey(), new RatesHWM(entry.getValue()));
+		}
+		
+		// The remaining types reset based on some time period. This is controlled by supplying a "continuity value"
+		// that when changes causes a reset of previously saved HWM values. This value can be a relevant part of the changing date/time
+		this.sampleTime = LocalDateTime.now();
+		int tempContinuityValue = sampleTime.getDayOfYear(); //sampleTime.get(WeekFields.of(Locale.getDefault()).weekOfYear());
+		
+		// Create the daily ones. The continuity value is simply the current day of year
+		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+			messageRatesHWM_daily.put(entry.getKey() + " - Day", new RatesHWM(entry.getValue(), tempContinuityValue));
+		}
+
+		// Create the Weekly ones. The continuity value is simply the week of year
+		tempContinuityValue = sampleTime.get(WeekFields.of(Locale.getDefault()).weekOfYear());
+		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+			messageRatesHWM_weekly.put(entry.getKey() + " - Week", new RatesHWM(entry.getValue(), tempContinuityValue));
+		}
+		
+		// Create the Monthly ones. The continuity value is simply the month of year
+		tempContinuityValue = sampleTime.getMonthValue();
+		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+			messageRatesHWM_monthly.put(entry.getKey() + " - Month", new RatesHWM(entry.getValue(), tempContinuityValue));
+		}
+		
+		// Create the Yearly ones. The continuity value is simply the year
+		tempContinuityValue = sampleTime.getYear();
+		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+			messageRatesHWM_yearly.put(entry.getKey() + " - Year", new RatesHWM(entry.getValue(), tempContinuityValue));
+		}
+		
 	}
         
 	/**
@@ -250,7 +298,7 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		// Construct table content
 		HttpPost post = new HttpPost(HTTP_REQUEST_URI);
 		post.setHeader(HEADER_CONTENT_TYPE_UTF8);
-		post.setEntity(new ByteArrayEntity(SHOW_USERS_REQUEST.getBytes("UTF-8")));
+		post.setEntity(new ByteArrayEntity(SHOW_VPN_RATES_REQUEST.getBytes("UTF-8")));
 		
 		
 		SampleHttpSEMPResponse resp = httpClient.execute(post, responseHandler);
@@ -463,8 +511,8 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		
 		
 		// Submit the current rates to the HWM objects to update if higher than what is previously known:		
-		
-		for (Map.Entry<String, RatesHWM> entry : messageRatesHWM.entrySet()){
+		// All Time ones
+		for (Map.Entry<String, RatesHWM> entry : messageRatesHWM_allTime.entrySet()){
 			
 			entry.getValue().updateHWMs(lastSampleTime, currentMsgRate, currentMsgRateIngress, currentMsgRateEgress, 
 					averageMsgRate, averageMsgRateIngress, averageMsgRateEgress, 
@@ -476,7 +524,73 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 			tempRow.add(0, entry.getKey());
 			hwmTableContent.add(tempRow);
 		}
-				
+		// Get the current time
+		this.sampleTime = LocalDateTime.now();
+		
+		// Daily reset ones
+		for (Map.Entry<String, RatesHWM> entry : messageRatesHWM_daily.entrySet()){
+			
+			// Does it need to be reset?
+			entry.getValue().resetHWMs(sampleTime.getDayOfYear());
+			// Now submit current values to assess:
+			entry.getValue().updateHWMs(lastSampleTime, currentMsgRate, currentMsgRateIngress, currentMsgRateEgress, 
+					averageMsgRate, averageMsgRateIngress, averageMsgRateEgress, 
+					currentByteRate / BYTE_TO_MBYTE, currentByteRateIngress / BYTE_TO_MBYTE, currentByteRateEgress / BYTE_TO_MBYTE,
+					averageByteRate / BYTE_TO_MBYTE, averageByteRateIngress / BYTE_TO_MBYTE, averageByteRateEgress / BYTE_TO_MBYTE,
+					topTalkerVPN1, topTalkerVPN2, topTalkerVPN3);			
+						
+			ArrayList<String> tempRow = entry.getValue().getHWMRow();
+			tempRow.add(0, entry.getKey());
+			hwmTableContent.add(tempRow);
+		}
+		// Weekly reset ones
+		for (Map.Entry<String, RatesHWM> entry : messageRatesHWM_weekly.entrySet()){
+			
+			// Does it need to be reset?
+			entry.getValue().resetHWMs(sampleTime.get(WeekFields.of(Locale.getDefault()).weekOfYear()) );
+			// Now submit current values to assess:
+			entry.getValue().updateHWMs(lastSampleTime, currentMsgRate, currentMsgRateIngress, currentMsgRateEgress, 
+					averageMsgRate, averageMsgRateIngress, averageMsgRateEgress, 
+					currentByteRate / BYTE_TO_MBYTE, currentByteRateIngress / BYTE_TO_MBYTE, currentByteRateEgress / BYTE_TO_MBYTE,
+					averageByteRate / BYTE_TO_MBYTE, averageByteRateIngress / BYTE_TO_MBYTE, averageByteRateEgress / BYTE_TO_MBYTE,
+					topTalkerVPN1, topTalkerVPN2, topTalkerVPN3);			
+						
+			ArrayList<String> tempRow = entry.getValue().getHWMRow();
+			tempRow.add(0, entry.getKey());
+			hwmTableContent.add(tempRow);
+		}				
+		// Monthly reset ones
+		for (Map.Entry<String, RatesHWM> entry : messageRatesHWM_monthly.entrySet()){
+			
+			// Does it need to be reset?
+			entry.getValue().resetHWMs(sampleTime.getMonthValue());
+			// Now submit current values to assess:
+			entry.getValue().updateHWMs(lastSampleTime, currentMsgRate, currentMsgRateIngress, currentMsgRateEgress, 
+					averageMsgRate, averageMsgRateIngress, averageMsgRateEgress, 
+					currentByteRate / BYTE_TO_MBYTE, currentByteRateIngress / BYTE_TO_MBYTE, currentByteRateEgress / BYTE_TO_MBYTE,
+					averageByteRate / BYTE_TO_MBYTE, averageByteRateIngress / BYTE_TO_MBYTE, averageByteRateEgress / BYTE_TO_MBYTE,
+					topTalkerVPN1, topTalkerVPN2, topTalkerVPN3);			
+						
+			ArrayList<String> tempRow = entry.getValue().getHWMRow();
+			tempRow.add(0, entry.getKey());
+			hwmTableContent.add(tempRow);
+		}	
+		// Yearly reset ones
+		for (Map.Entry<String, RatesHWM> entry : messageRatesHWM_yearly.entrySet()){
+			
+			// Does it need to be reset?
+			entry.getValue().resetHWMs(sampleTime.getYear());
+			// Now submit current values to assess:
+			entry.getValue().updateHWMs(lastSampleTime, currentMsgRate, currentMsgRateIngress, currentMsgRateEgress, 
+					averageMsgRate, averageMsgRateIngress, averageMsgRateEgress, 
+					currentByteRate / BYTE_TO_MBYTE, currentByteRateIngress / BYTE_TO_MBYTE, currentByteRateEgress / BYTE_TO_MBYTE,
+					averageByteRate / BYTE_TO_MBYTE, averageByteRateIngress / BYTE_TO_MBYTE, averageByteRateEgress / BYTE_TO_MBYTE,
+					topTalkerVPN1, topTalkerVPN2, topTalkerVPN3);			
+						
+			ArrayList<String> tempRow = entry.getValue().getHWMRow();
+			tempRow.add(0, entry.getKey());
+			hwmTableContent.add(tempRow);
+		}	
 		
 		// Now ready to publish tables to the view map
     	if (viewMap != null && viewMap.size() > 0) {

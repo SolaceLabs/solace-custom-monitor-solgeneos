@@ -44,6 +44,10 @@ public class RatesHWM {
 	private String topTalkerVPN2 = "";
 	private String topTalkerVPN3 = "";
 	
+	// A flag to signal whether the currently stored HWMs should be reset. (Will do so if a value supplied is different to what is stored.)
+	// This way this class works generically whether the HWM is being reset hourly, daily, weekly, monthly, etc. Logic is determined by the user.
+	private int continuityValue = -1;
+	
 	private ArrayList<String> row;
 
 	private Type type;
@@ -52,6 +56,13 @@ public class RatesHWM {
 	public RatesHWM(RatesHWM.Type type) {
 		super();
 		this.type = type;
+
+	}
+	
+	public RatesHWM(RatesHWM.Type type, int continuityValue) {
+		super();
+		this.type = type;
+		this.continuityValue = continuityValue;
 
 	}
 	
@@ -128,6 +139,33 @@ public class RatesHWM {
 			this.topTalkerVPN3 = topTalkerVPN3;			
 		}
 		
+	}
+	
+	private void resetHWMs () {
+		this.timestamp = "";
+		this.currentMsgRate = 0;
+		this.currentIngressMsgRate = 0;
+		this.currentEgressMsgRate = 0;
+		this.averageMsgRate = 0;
+		this.averageIngressMsgRate = 0;
+		this.averageEgressMsgRate = 0;
+		this.currentMByteRate = 0;
+		this.currentIngressMByteRate = 0;
+		this.currentEgressMByteRate = 0;
+		this.averageMByteRate = 0;
+		this.averageIngressMByteRate = 0;
+		this.averageEgressMByteRate = 0;
+		this.topTalkerVPN1 = "";
+		this.topTalkerVPN2 = "";
+		this.topTalkerVPN3 = "";	
+	}
+	
+	public void resetHWMs (int continuityValue) {
+		
+		if (this.continuityValue != continuityValue) {
+			this.continuityValue = continuityValue;
+			resetHWMs();
+		}	
 	}
 
 	public ArrayList<String> getHWMRow (){
