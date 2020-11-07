@@ -1,5 +1,11 @@
 package com.solacesystems.solgeneos.custommonitors;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.time.LocalDateTime;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
@@ -38,7 +44,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.1";
+	static final public String MONITOR_VERSION = "1.2";
 	
 	// The SEMP query to execute:
     static final public String SHOW_VPN_RATES_REQUEST = 
@@ -111,6 +117,13 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     
     static final private int TOP_TALKERS_LIMIT = 3;	// How many VPNs to list in the "top talkers" headlines?
     
+    // When serializing state about the high water marks, where to put it?
+    static final private String SZ_PATH_HWM_ALLTIME = "logs/messageRatesHWM_allTime.ser";
+    static final private String SZ_PATH_HWM_DAILY = "logs/messageRatesHWM_daily.ser";
+    static final private String SZ_PATH_HWM_WEEKLY = "logs/messageRatesHWM_weekly.ser";
+    static final private String SZ_PATH_HWM_MONTHLY = "logs/messageRatesHWM_monthly.ser";
+    static final private String SZ_PATH_HWM_YEARLY = "logs/messageRatesHWM_yearly.ser";
+    
     private DefaultHttpClient httpClient;
     private ResponseHandler<SampleHttpSEMPResponse> responseHandler;
     private VPNRecordSEMPParser multiRecordParser;
@@ -119,11 +132,12 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     private Vector<Object> tempTableContent;		// Used in the various stages of manipulating the received table
     private Vector<Object> hwmTableContent;			// Used for the High Water Mark values display
     
-    private LinkedHashMap<String, RatesHWM> messageRatesHWM_allTime = new LinkedHashMap<String, RatesHWM>();
-    private LinkedHashMap<String, RatesHWM> messageRatesHWM_daily = new LinkedHashMap<String, RatesHWM>();
-    private LinkedHashMap<String, RatesHWM> messageRatesHWM_weekly = new LinkedHashMap<String, RatesHWM>();
-    private LinkedHashMap<String, RatesHWM> messageRatesHWM_monthly = new LinkedHashMap<String, RatesHWM>();
-    private LinkedHashMap<String, RatesHWM> messageRatesHWM_yearly = new LinkedHashMap<String, RatesHWM>();
+    // These will either be initialised with the constructor later, or deserialized from file.
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_allTime;
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_daily; 
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_weekly; 
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_monthly; 
+    private LinkedHashMap<String, RatesHWM> messageRatesHWM_yearly;
     
     private LinkedHashMap<String, Object> globalHeadlines = new LinkedHashMap<String, Object>();
     // Is the monitor creating a dataview per VPN or everything is in one view?
@@ -175,8 +189,6 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		// (2) Add this monitor's important details as headlines
 		globalHeadlines.put("Custom Monitor", this.getName() + " v" + MONITOR_VERSION);
 		globalHeadlines.put("Sampling Interval (secs)", this.getSamplingRate());
-		globalHeadlines.put("Monitor Start Time", SolGeneosAgent.onlyInstance.getCurrentTimeString());
-		
 
 		// (3) Are there properties specific to this monitor in its config file?
 		// This monitor can be operated in two modes: (1) single view, or (2) multi view.
@@ -226,8 +238,19 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		multiRecordParser = new VPNRecordSEMPParser(RESPONSE_ELEMENT_NAME_ROWS, RESPONSE_COLUMNS, RESPONSE_ELEMENT_NAMES_IGNORE);
 		
 		// (5) Create the High Water Mark objects for each interested metric to do it for...
-		// Current entries are one per metric. Then each for the different groupings will be created (all-time, daily, weekly, yearly) 
+		initHWMs();
 		
+	}
+	
+	/**
+	 * This method is responsible for initializing the high water mark tracking objects
+	 * If they have been previously created and serialized, load it back. 
+	 * Otherwise create them for the first time.
+	 */
+	
+	private void initHWMs () {
+
+		// There is a HWM object for each metric, then different groups of them with different reset periods. (all-time, daily, weekly, yearly) 
 		LinkedHashMap<String, RatesHWM.Type> tempHWMNames = new LinkedHashMap<String, RatesHWM.Type>();
 		
 		tempHWMNames.put("Current Msg Rate", RatesHWM.Type.CURRENT_MSG_RATE);
@@ -246,41 +269,134 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		tempHWMNames.put("Average Ingress MByte Rate", RatesHWM.Type.AVERAGE_INGRESS_MBYTE_RATE);
 		tempHWMNames.put("Average Egress MByte Rate", RatesHWM.Type.AVERAGE_EGRESS_MBYTE_RATE);
 		
+		// Has there been some previous objects serialized and should be restored?
+		
 		// Create the all-time ones:
-		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
-			messageRatesHWM_allTime.put(entry.getKey(), new RatesHWM(entry.getValue()));
+		if (! deserializeHWM(messageRatesHWM_allTime, SZ_PATH_HWM_ALLTIME) ) {
+			// Not a successful deserialize operation. Either an exception, no previous file, etc.
+			// Blunt response is to initialise it all afresh, whatever the cause of the 'false' being returned!
+			
+			messageRatesHWM_allTime = new LinkedHashMap<String, RatesHWM>();
+			for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+				messageRatesHWM_allTime.put(entry.getKey(), new RatesHWM(entry.getValue()));
+			}
 		}
 		
 		// The remaining types reset based on some time period. This is controlled by supplying a "continuity value"
 		// that when changes causes a reset of previously saved HWM values. This value can be a relevant part of the changing date/time
 		this.sampleTime = LocalDateTime.now();
-		int tempContinuityValue = sampleTime.getDayOfYear(); //sampleTime.get(WeekFields.of(Locale.getDefault()).weekOfYear());
+		int tempContinuityValue;
 		
 		// Create the daily ones. The continuity value is simply the current day of year
-		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
-			messageRatesHWM_daily.put(entry.getKey() + " - Day", new RatesHWM(entry.getValue(), tempContinuityValue));
-		}
-
-		// Create the Weekly ones. The continuity value is simply the week of year
-		tempContinuityValue = sampleTime.get(WeekFields.of(Locale.getDefault()).weekOfYear());
-		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
-			messageRatesHWM_weekly.put(entry.getKey() + " - Week", new RatesHWM(entry.getValue(), tempContinuityValue));
+		if (! deserializeHWM(messageRatesHWM_daily, SZ_PATH_HWM_DAILY) ) {
+			
+			messageRatesHWM_daily = new LinkedHashMap<String, RatesHWM>();
+			tempContinuityValue = sampleTime.getDayOfYear(); 
+			for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+				messageRatesHWM_daily.put(entry.getKey() + "- Day", new RatesHWM(entry.getValue()));
+			}
 		}
 		
-		// Create the Monthly ones. The continuity value is simply the month of year
-		tempContinuityValue = sampleTime.getMonthValue();
-		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
-			messageRatesHWM_monthly.put(entry.getKey() + " - Month", new RatesHWM(entry.getValue(), tempContinuityValue));
+		// Create the weekly ones. The continuity value is simply the week of year
+		if (! deserializeHWM(messageRatesHWM_weekly, SZ_PATH_HWM_WEEKLY) ) {
+			
+			messageRatesHWM_weekly = new LinkedHashMap<String, RatesHWM>();
+			tempContinuityValue = sampleTime.get(WeekFields.of(Locale.getDefault()).weekOfYear());
+			for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+				messageRatesHWM_weekly.put(entry.getKey() + " - Week", new RatesHWM(entry.getValue(), tempContinuityValue));
+			}
+		}
+		
+		// Create the monthly ones. The continuity value is simply the month of year
+		if (! deserializeHWM(messageRatesHWM_monthly, SZ_PATH_HWM_MONTHLY) ) {
+			
+			messageRatesHWM_monthly = new LinkedHashMap<String, RatesHWM>();
+			tempContinuityValue = sampleTime.getMonthValue();
+			for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+				messageRatesHWM_monthly.put(entry.getKey() + " - Month", new RatesHWM(entry.getValue(), tempContinuityValue));
+			}
 		}
 		
 		// Create the Yearly ones. The continuity value is simply the year
-		tempContinuityValue = sampleTime.getYear();
-		for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
-			messageRatesHWM_yearly.put(entry.getKey() + " - Year", new RatesHWM(entry.getValue(), tempContinuityValue));
+		if (! deserializeHWM(messageRatesHWM_yearly, SZ_PATH_HWM_YEARLY) ) {
+			
+			messageRatesHWM_yearly = new LinkedHashMap<String, RatesHWM>();
+			tempContinuityValue = sampleTime.getYear();
+			for (Map.Entry<String, RatesHWM.Type> entry : tempHWMNames.entrySet()){
+				messageRatesHWM_yearly.put(entry.getKey() + " - Year", new RatesHWM(entry.getValue(), tempContinuityValue));
+			}
 		}
 		
 	}
         
+	private void serializeHWM (LinkedHashMap<String, RatesHWM> messageRateHWM, String szFilePath) {
+
+		try {
+			ObjectOutputStream out;
+			FileOutputStream fileOut;
+			
+			fileOut = new FileOutputStream(szFilePath);
+			out = new ObjectOutputStream(fileOut);
+	        out.writeObject(messageRateHWM);
+	        out.close();
+	        fileOut.close();	
+		} 
+		catch (IOException i) {
+	         this.getLogger().error("IO Exception during serialization of HWM at: " + szFilePath + ". " + i.getMessage() + i.toString());
+	    }       
+	}
+	
+	@SuppressWarnings("unchecked")
+	private boolean deserializeHWM (LinkedHashMap<String, RatesHWM> messageRateHWM, String szFilePath) {
+
+		this.getLogger().info("Started deserialization of HWM object from: " + szFilePath);
+		
+		try {
+			ObjectInputStream in;
+			FileInputStream fileIn;
+			
+			fileIn = new FileInputStream(SZ_PATH_HWM_ALLTIME);
+			in = new ObjectInputStream(fileIn);
+			messageRatesHWM_allTime = (LinkedHashMap<String, RatesHWM>) in.readObject();
+	        in.close();
+	        fileIn.close();	
+	        
+			fileIn = new FileInputStream(SZ_PATH_HWM_DAILY);
+			in = new ObjectInputStream(fileIn);
+			messageRatesHWM_daily = (LinkedHashMap<String, RatesHWM>) in.readObject();
+	        in.close();
+	        fileIn.close();	
+	        
+			fileIn = new FileInputStream(SZ_PATH_HWM_WEEKLY);
+			in = new ObjectInputStream(fileIn);
+			messageRatesHWM_weekly = (LinkedHashMap<String, RatesHWM>) in.readObject();
+	        in.close();
+	        fileIn.close();	
+	        
+			fileIn = new FileInputStream(SZ_PATH_HWM_MONTHLY);
+			in = new ObjectInputStream(fileIn);
+			messageRatesHWM_monthly = (LinkedHashMap<String, RatesHWM>) in.readObject();
+	        in.close();
+	        fileIn.close();	
+	        
+			fileIn = new FileInputStream(SZ_PATH_HWM_YEARLY);
+			in = new ObjectInputStream(fileIn);
+			messageRatesHWM_yearly = (LinkedHashMap<String, RatesHWM>) in.readObject();
+	        in.close();
+	        fileIn.close();	
+	        
+	        this.getLogger().info("Finished deserialization of HWM object from: " + szFilePath);
+			return true;
+		} 
+		catch (FileNotFoundException f) {
+	         this.getLogger().info("File not found during deserialization of HWM at: " + szFilePath + ". " + f.getMessage() + f.toString());
+	         return false;
+	    }  
+		catch (IOException | ClassNotFoundException i) {
+			this.getLogger().error("IO Exception during deserialization of HWM at: " + szFilePath + ". " + i.getMessage() + i.toString());
+	         return false;
+	    }       
+	}
 	/**
 	 * This method is responsible to collect data required for a view.
 	 * @return The next monitor state which should be State.REPORTING_QUEUE.
@@ -591,6 +707,13 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 			tempRow.add(0, entry.getKey());
 			hwmTableContent.add(tempRow);
 		}	
+		
+		// Save the new updated HWMs to file
+		serializeHWM(messageRatesHWM_allTime, SZ_PATH_HWM_ALLTIME);
+		serializeHWM(messageRatesHWM_daily, SZ_PATH_HWM_DAILY);
+		serializeHWM(messageRatesHWM_weekly, SZ_PATH_HWM_WEEKLY);
+		serializeHWM(messageRatesHWM_monthly, SZ_PATH_HWM_MONTHLY);
+		serializeHWM(messageRatesHWM_yearly, SZ_PATH_HWM_YEARLY);
 		
 		// Now ready to publish tables to the view map
     	if (viewMap != null && viewMap.size() > 0) {

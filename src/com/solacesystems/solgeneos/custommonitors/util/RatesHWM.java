@@ -2,12 +2,17 @@ package com.solacesystems.solgeneos.custommonitors.util;
 
 import java.util.ArrayList;
 
-public class RatesHWM {
+public class RatesHWM implements java.io.Serializable {
 	
-    // What should be the formatting style?
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	// What should be the formatting style?
     static final private String FLOAT_FORMAT_STYLE = "%.2f";	// 2 decimal places
     
-	public enum Type {
+	public static enum Type {
 		CURRENT_MSG_RATE,
 		CURRENT_INGRESS_MSG_RATE,
 		CURRENT_EGRESS_MSG_RATE,
@@ -48,7 +53,7 @@ public class RatesHWM {
 	// This way this class works generically whether the HWM is being reset hourly, daily, weekly, monthly, etc. Logic is determined by the user.
 	private int continuityValue = -1;
 	
-	private ArrayList<String> row;
+	private transient ArrayList<String> row;
 
 	private Type type;
 
