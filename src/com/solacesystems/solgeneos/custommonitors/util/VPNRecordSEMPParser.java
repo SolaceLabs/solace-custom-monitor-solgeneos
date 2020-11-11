@@ -1,6 +1,8 @@
 package com.solacesystems.solgeneos.custommonitors.util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Vector;
 
@@ -14,16 +16,11 @@ import org.xml.sax.SAXException;
  */
 public class VPNRecordSEMPParser extends SampleSEMPParser {
 	
-//	// Need to build up the row UID as the data returned from SEMP will not have a unique key
-//	private String rowUniqueIdName = "";
-//	private String rowUniqueIdVpn = "";
-//	
-//	// Some consts to find the relevant fields, name the column and the delimiter in its construction of two fields joined up.
-//	public final String SEMP_VPN_TAG = "message-vpn";
-//	public final String SEMP_NAME_TAG = "name";
-//	public final String ROW_UID_NAME = "RowUID";
-//	public final String ROW_UID_DELIM = "?";
-	
+
+	private String vpnName = "";
+
+	// How to find the vpn name field
+	public final String SEMP_NAME_TAG = "name";
 	
 	private List<String> columnNames = new ArrayList<String>();
 	
@@ -52,6 +49,10 @@ public class VPNRecordSEMPParser extends SampleSEMPParser {
 	// Table content with the individual rows populated as the parsing progresses
 	private Vector<Object> tableContent;
 	private ArrayList<String> tableRow;
+	
+	// Save the information in a hash map as another way to access the data. (Say if some merging of multiple queries is required.)
+	private HashMap<String, ArrayList<String>> responseData;
+	
     
     public VPNRecordSEMPParser(String rowsElementName, List<String> columnElementNames, List<String> ignoreElementNames) throws ParserConfigurationException, SAXException {
     	super();
@@ -72,12 +73,15 @@ public class VPNRecordSEMPParser extends SampleSEMPParser {
     	sbElementContent.delete(0, sbElementContent.length());
     	
 //    	rowUniqueIdName = "";
-//    	rowUniqueIdVpn = "";
+    	vpnName = "";
     	
     	currentSEMPDepth = 0;
     	
-    	// Reinitialise the tableContent object
+    	// Initialise the tableContent object
     	tableContent = new Vector<Object>();
+    	
+    	// Initialise the data hashmap
+    	responseData = new LinkedHashMap<String, ArrayList<String>>();
 
 	}
 	
@@ -106,9 +110,7 @@ public class VPNRecordSEMPParser extends SampleSEMPParser {
 				createRows = true; // This will be switched to false each time we leave the section of interest in the XML
 				tableRow = new ArrayList<String>();
 				
-				// Clear the UID generation components
-//				rowUniqueIdName = "";
-//		    	rowUniqueIdVpn = "";
+		    	vpnName = "";
 				
 			}	    	
 			// Is this now the element for the skip section rows?
@@ -157,17 +159,15 @@ public class VPNRecordSEMPParser extends SampleSEMPParser {
 	    		// Do not treat any further elements found by startElement as being columns
 	    		createRows = false;
 	    		
-	    		// Add the UID to the start of the row...
-//	    		tableRow.add(0, this.rowUniqueIdName.trim() + ROW_UID_DELIM + this.rowUniqueIdVpn.trim());
-	    		
 	    		// Add the new row as it currently stands to the table
 	    		tableContent.add(tableRow);
+	    		
+	    		// Add the row to the HashMap version too, keyed by the VPN name
+	    		responseData.put(vpnName, tableRow);
 	    		
 	    		if (!columnNamesKnown){
 	    			// One row fully processed so column names are known now.
 	        		columnNamesKnown = true;
-	        		// Add the new RowUID as the first column name though
-//	        		this.columnNames.add(0, ROW_UID_NAME);	
 	    		}
 	    	} 
 	    	else if (ignoreElementNames.contains(qualifiedName))
@@ -184,16 +184,11 @@ public class VPNRecordSEMPParser extends SampleSEMPParser {
 					tableRow.add(sbElementContent.toString());	// String builder will be cleared the next time an element of interest starts
 				}
 	    		
-	    		// Collect the components needed to build up the UID for the row. 
-				// Not in the above if-statement as theoretically could make up UID with other fields not used in final columns display. Like other natural unique IDs.
-//	    		if (qualifiedName.equalsIgnoreCase(SEMP_NAME_TAG)) 
-//	    		{
-//	    			this.rowUniqueIdName = sbElementContent.toString();
-//	    		}
-//	    		if (qualifiedName.equalsIgnoreCase(SEMP_VPN_TAG)) 
-//	    		{
-//	    			this.rowUniqueIdVpn = sbElementContent.toString();
-//	    		}
+	    		// Collect the VPN name so it can be a key to the hash map 
+	    		if (qualifiedName.equalsIgnoreCase(SEMP_NAME_TAG)) 
+	    		{
+	    			vpnName = sbElementContent.toString();
+	    		}
 	    	}
     	}
     }
@@ -221,6 +216,11 @@ public class VPNRecordSEMPParser extends SampleSEMPParser {
 		return this.columnNames;
 	}
 
+	public HashMap<String, ArrayList<String>> getData() {
+		// Return the rows in a hash map keyed by the VPN name
+		return this.responseData;
+	}
+	
 	public Vector<Object> getFullTable() {
 		// Return a combined table of column names and content
 		@SuppressWarnings("unchecked")
