@@ -98,7 +98,7 @@ Sample of the new dataview showing various resource usage and their max limit:
 This monitor provides new functionality to look at resource related limits at a broker level. Adding to the functionality in the earlier `MessageVPNLimits` dataview (#5 above), this dataview summarises those same resources in a 'total allocated vs broker limit' manner. As part of effective capacity management of a shared-tenancy broker, it is important to monitor when resources being allocated at a VPN level (i.e. the 'soft limits') are cumulatively nearing or perhaps even exceeding the broker level hard limits.
 Additionally, if an organisation is also adopting a policy of 'overcommitting' or 'overbooking' the broker resources to the underlying message-VPNs that are created, this monitor will make it easy to monitor the actual usage of a resource versus the known hard limit.
 
-Sample of the new dataview showing various resources for their current usage, total allocation to the configured message-VPNs, and the actual hard limit:
+Sample of the new dataview showing various resources for their current usage, total allocation to the configured message-VPNs, and the actual hard limit:  
 ![BrokerLimits Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/BrokerLimits%20-%20Dataview%20Sample.png?raw=true)
 
 ## How to use this repository
