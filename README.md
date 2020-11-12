@@ -20,6 +20,8 @@ No.  | Name | Function |
 2 | [QueuesEx Monitor](#2-queuesex-monitor) | Extended version of Queues monitor with several enhancements |
 3 | [TopicEndpointsEx Monitor](#3-topicendpointsex-monitor) | Extended version of TopicEndpoints monitor with several enhancements |
 4 | [MessageRates Monitor](#4-messagerates-monitor) | New monitor to display message and byte rate activity as well as identify top-talkers and track high water marks (HWMs) |
+5 | [MessageVPNLimits Monitor](#5-messagevpnlimits-monitor) | New monitor to clearly display 'current usage vs. max limit' of various capacity-related resources at a message-vpn level |
+6 | [BrokerLimits Monitor](#6-brokerlimits-monitor) | New monitor to clearly display 'current allocated vs. broker hard limit' of various capacity related resources |
 
 
 ### (1) Users Monitor
@@ -79,6 +81,25 @@ Sample of the new headlines and columns available in the primary `MessageRates` 
 
 Sample of the high water mark (HWM) values that are tracked in the additional `MessageRatesHWM` dataview. Note that the full context of other rate metrics and top talkers at the time of the HWM rate is also retained for reference and context.
 ![MessageRatesHWM Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample.png?raw=true)
+
+### (5) MessageVPNLimits Monitor
+
+This monitor provides new functionality to look at resource related limits at a per-VPN level. As part of the multi-tenancy approach to using the brokers, various limits are applied at each message-VPN when it is created, each message-VPN in effect being a virtual slice of the overall broker and its resources.
+This monitor displays those resources (e.g. number of connections, number of subscriptions) in a 'current usage vs configured limit' manner. This makes rules easier to apply where percentage utilisation can be worked out to highlight any VPNs that are operating close to their configured soft limits.
+
+Features implemented in the monitor include:
+* A computed "utilisation score" is done for each message-VPN to highlight those needing attention versus those that don't. This score is used to help prioritise the message-VPNs that should be caught in the dataview if the number of message-VPNs on the broker is higher than the `max rows` limit configured for the dataview. 
+
+Sample of the new dataview showing various resource usage and their max limit:
+![MessageVPNLimits Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageVPNLimits%20-%20Dataview%20Sample.png?raw=true)
+
+### (6) BrokerLimits Monitor
+
+This monitor provides new functionality to look at resource related limits at a broker level. Adding to the functionality in the earlier `MessageVPNLimits` dataview (#5 above), this dataview summarises those same resources in a 'total allocated vs broker limit' manner. As part of effective capacity management of a shared-tenancy broker, it is important to monitor when resources being allocated at a VPN level (i.e. the 'soft limits') are cumulatively nearing or perhaps even exceeding the broker level hard limits.
+Additionally, if an organisation is also adopting a policy of 'overcommitting' or 'overbooking' the broker resources to the underlying message-VPNs that are created, this monitor will make it easy to monitor the actual usage of a resource versus the known hard limit.
+
+Sample of the new dataview showing various resources for their current usage, total allocation to the configured message-VPNs, and the actual hard limit:  
+![BrokerLimits Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/BrokerLimits%20-%20Dataview%20Sample.png?raw=true)
 
 ## How to use this repository
 
