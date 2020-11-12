@@ -402,12 +402,19 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 			{
 				// Add a new utlisation score calculated column
 				double score = 0;
+				int nUnusedResource = 0;
 				for (String resourceName : RESOURCES) {
 					double current = Double.parseDouble(tempTableRow.get(VPN_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf(resourceName + " - Current")));
 					double max = Double.parseDouble(tempTableRow.get(VPN_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf(resourceName + " - Max")));
-					score += (max > 0) ? current / max : 0;
+					
+					if (max == 0) {
+						nUnusedResource++;
+					}
+					else {
+						score += current / max;
+					}
 				}
-				tempTableRow.add(String.format(FLOAT_FORMAT_STYLE, ((score / RESOURCES.length) * 100 )) );
+				tempTableRow.add(String.format(FLOAT_FORMAT_STYLE, ((score / (RESOURCES.length - nUnusedResource) ) * 100 )) );
 			}
 		}  
 		vpnLimitsTableContent = tempVpnLimitsTableContent;
