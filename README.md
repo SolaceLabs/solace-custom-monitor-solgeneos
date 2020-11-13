@@ -22,6 +22,8 @@ No.  | Name | Function |
 4 | [MessageRates Monitor](#4-messagerates-monitor) | New monitor to display message and byte rate activity as well as identify top-talkers and track high water marks (HWMs) |
 5 | [MessageVPNLimits Monitor](#5-messagevpnlimits-monitor) | New monitor to clearly display 'current usage vs. max limit' of various capacity-related resources at a message-vpn level |
 6 | [BrokerLimits Monitor](#6-brokerlimits-monitor) | New monitor to clearly display 'current allocated vs. broker hard limit' of various capacity related resources |
+7 | [ClientsTopPublishers Monitor](#7-clientstoppublishers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
+8 | [ClientsSlowSubscribers Monitor](#8-clientsslowsubscribers-monitor) | New monitor to show all clients the broker has determined to be slow subscribers |
 
 
 ### (1) Users Monitor
@@ -100,6 +102,21 @@ Additionally, if an organisation is also adopting a policy of 'overcommitting' o
 
 Sample of the new dataview showing various resources for their current usage, total allocation to the configured message-VPNs, and the actual hard limit:  
 ![BrokerLimits Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/BrokerLimits%20-%20Dataview%20Sample.png?raw=true)
+
+### (7) ClientsTopPublishers Monitor
+
+This monitor augments the earlier `MessageRates` Monitor (#4 above) to show message and byte rate activity at an individual client level. The dataview quite simply shows the top 10 connected clients when ordered by the average publishing byte rate. For a holistic view, the dataset also includes the current and average message rate of the client, the current byte rate, and the total published bytes for each client.
+
+Sample of the new dataview showing (upto) the top 10 publishers:  
+![ClientsTopPublishers Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/ClientsTopPublishers%20-%20Dataview%20Sample.png?raw=true)
+
+### (8) ClientsSlowSubscribers Monitor
+
+This monitor shows the connected clients that are marked by the broker as being slow subscribers. That is, the clients are not servicing their network sockets fast enough to keep up with that the broker is transmitting to it. While these clients cause adverse impact to the broker and will automatically be disconnected if necessary, this monitor allows for such applications to be proactively detected so operational troubleshooting can take place. Most often, these clients are ones that are either bandwidth or CPU constrained, so detecting this condition early to take some action can prevent a wider outage for the application.
+
+Sample of the new dataview showing (if any) clients that are being slow:  
+![ClientsSlowSubscribers Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/ClientsSlowSubscribers%20-%20Dataview%20Sample.png?raw=true)
+
 
 ## How to use this repository
 
