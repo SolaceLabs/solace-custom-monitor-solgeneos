@@ -2,19 +2,12 @@ package com.solacesystems.solgeneos.custommonitors;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
 import java.util.Vector;
-import java.util.stream.Collectors;
-
-import javax.xml.parsers.ParserConfigurationException;
-
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -24,18 +17,11 @@ import org.apache.http.client.params.ClientPNames;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.HttpParams;
-import org.xml.sax.SAXException;
-
-import com.solacesystems.solgeneos.custommonitors.util.RatesHWM;
-import com.solacesystems.common.semp.SEMPSAXParser;
-import com.solacesystems.solgeneos.custommonitors.MessageRatesMonitor.RatesComparator;
 import com.solacesystems.solgeneos.custommonitors.util.MonitorConstants;
-import com.solacesystems.solgeneos.custommonitors.util.MultiFieldSEMPParser;
 import com.solacesystems.solgeneos.custommonitors.util.MultiRecordSEMPParser;
 import com.solacesystems.solgeneos.custommonitors.util.SampleHttpSEMPResponse;
 import com.solacesystems.solgeneos.custommonitors.util.SampleResponseHandler;
 import com.solacesystems.solgeneos.custommonitors.util.SampleSEMPParser;
-import com.solacesystems.solgeneos.custommonitors.util.VPNRecordSEMPParser;
 import com.solacesystems.solgeneos.solgeneosagent.SolGeneosAgent;
 import com.solacesystems.solgeneos.solgeneosagent.UserPropertiesConfig;
 import com.solacesystems.solgeneos.solgeneosagent.monitor.BaseMonitor;
@@ -201,10 +187,6 @@ public class ClientsTopPublishersMonitor extends BaseMonitor implements MonitorC
 			else
 			{
 				for (String columnName : COLUMNS_IN_MBYTES) {
-					this.getLogger().error("Currently at MB column: " + columnName);
-					this.getLogger().error("Searching for it in: " + DATAVIEW_COLUMN_NAMES.toString());
-					this.getLogger().error("Returned Index is: " + DATAVIEW_COLUMN_NAMES.indexOf(columnName));
-					
 					double bytes = Double.parseDouble(tempTableRow.get(DATAVIEW_COLUMN_NAMES.indexOf(columnName)));
 					tempTableRow.set(DATAVIEW_COLUMN_NAMES.indexOf(columnName), String.format(FLOAT_FORMAT_STYLE, (bytes / BYTE_TO_MBYTE)));
 				}
