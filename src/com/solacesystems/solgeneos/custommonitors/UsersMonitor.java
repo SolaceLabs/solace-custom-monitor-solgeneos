@@ -157,7 +157,7 @@ public class UsersMonitor extends BaseMonitor implements MonitorConstants {
 	 * @return The next monitor state which should be State.REPORTING_QUEUE.
 	 */
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "static-access" })
 	@Override
 	protected State onCollect() throws Exception {
 

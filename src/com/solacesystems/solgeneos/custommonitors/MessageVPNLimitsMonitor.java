@@ -13,8 +13,6 @@ import java.util.TreeMap;
 import java.util.Vector;
 import java.util.stream.Collectors;
 
-import javax.xml.parsers.ParserConfigurationException;
-
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -24,11 +22,6 @@ import org.apache.http.client.params.ClientPNames;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.HttpParams;
-import org.xml.sax.SAXException;
-
-import com.solacesystems.solgeneos.custommonitors.util.RatesHWM;
-import com.solacesystems.common.semp.SEMPSAXParser;
-import com.solacesystems.solgeneos.custommonitors.MessageRatesMonitor.RatesComparator;
 import com.solacesystems.solgeneos.custommonitors.util.MonitorConstants;
 import com.solacesystems.solgeneos.custommonitors.util.MultiFieldSEMPParser;
 import com.solacesystems.solgeneos.custommonitors.util.SampleHttpSEMPResponse;
@@ -134,8 +127,6 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
     				);
     
     static final String[] RESOURCES = {"Subscriptions", "Connections (SMF)", "Queue and TEs", "Spool Usage (MB)", "Transactions", "Transacted Sessions", "Egress Flows", "Ingress Flows"};
-    
-    static final private int BYTE_TO_MBYTE = 1048576;
     
     private DefaultHttpClient httpClient;
     private ResponseHandler<SampleHttpSEMPResponse> responseHandler;
