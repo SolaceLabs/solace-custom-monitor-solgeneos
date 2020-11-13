@@ -112,7 +112,7 @@ Sample of the new dataview showing (upto) the top 10 publishers:
 
 ### (8) ClientsSlowSubscribers Monitor
 
-This monitor shows the connected clients that are marked by the broker as being slow subscribers. That is, the clients are not servicing their network sockets fast enough to keep up with that the broker is transmitting to it. While these clients cause adverse impact to the broker and will automatically be disconnected if necessary, this monitor allows for such applications to be proactively detected so operational troubleshooting can take place. Most often, these clients are ones that are either bandwidth or CPU constrained, so detecting this condition early to take some action can prevent a wider outage for the application.
+This monitor shows the connected clients that are marked by the broker as being slow subscribers. That is, the clients are not servicing their network sockets fast enough to keep up with what the broker is transmitting to it. While these clients cannot cause adverse impact to the broker (and will automatically be disconnected if necessary), this monitor allows for such applications to be proactively detected so operational troubleshooting can take place. Most often, these clients are ones that are either bandwidth or CPU constrained on the host they reside, so detecting this condition early to take some action can prevent a wider outage for the application.
 
 Sample of the new dataview showing (if any) clients that are being slow:  
 ![ClientsSlowSubscribers Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/ClientsSlowSubscribers%20-%20Dataview%20Sample.png?raw=true)
