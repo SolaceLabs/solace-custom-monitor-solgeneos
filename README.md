@@ -105,7 +105,7 @@ Sample of the new dataview showing various resources for their current usage, to
 
 This project assumes you are familiar with custom monitor development already and have your environment setup with the sample java project provided in `solgeneossample` as described [here](https://docs.solace.com/SolGeneos-Agent/Monitor-Dev-and-Deployment.htm).
 
-The sample project uses the [Ant build tool](https://ant.apache.org/) to compile the sample code and generate the jar files for deployment on your event broker.
+The sample project uses the [Ant build tool](https://ant.apache.org/) to compile the sample code ([requires minimum 1.8 JDK](https://www.oracle.com/uk/java/technologies/javase/javase-jdk8-downloads.html)) and generate the jar files for deployment on your event broker.
 The contents of this project exist within the directory structure of that sample. 
 
 More specifically: 
