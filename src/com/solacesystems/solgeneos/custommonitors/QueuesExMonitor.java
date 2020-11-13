@@ -32,7 +32,11 @@ import com.solacesystems.solgeneos.solgeneosagent.UserPropertiesConfig;
 import com.solacesystems.solgeneos.solgeneosagent.monitor.BaseMonitor;
 import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 
+<<<<<<< HEAD
 public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
+=======
+public class QueuesMonitor extends BaseMonitor implements MonitorConstants {
+>>>>>>> a5d6d96f42dae37a53144e162abc3c8e83498f8e
   
 	// What version of the monitor?
 	static final public String MONITOR_VERSION = "1.0";
@@ -104,8 +108,13 @@ public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
     private List<String> detectedVpns;
     
     // A map of per view table contents and headlines
+<<<<<<< HEAD
     private Map<String, Vector<Object>> tablesPerView = new HashMap<String, Vector<Object>>();
     private Map<String, LinkedHashMap<String, Object>> headlinesPerView = new HashMap<String, LinkedHashMap<String, Object>>();
+=======
+    private Map<String, Vector<Object>> tablesPerView = new HashMap();
+    private Map<String, LinkedHashMap<String, Object>> headlinesPerView = new HashMap();
+>>>>>>> a5d6d96f42dae37a53144e162abc3c8e83498f8e
     
     // If multi-view mode and a view is to be deleted, cannot delete and clear it in one update. So need two samples for this, marking it for delete on the first sample.
     List<String> viewMarkedForDelete = new ArrayList<String>();		
