@@ -161,7 +161,7 @@ A restart of the `solgeneos` service will then activate the new monitors.
 1. Set the hostname of your dev broker to deploy to in `build.properties`  
     `dev.appliance.hostname=192.168.31.50`
 1. Use Ant to scp relevant files to the broker (available if Ant setup with [optional scp/ssh libraries on your system](https://ant.apache.org/manual/Tasks/scp.html))  
-    `scp deploy`  
+    `ant deploy`  
       
     If copying manually:  
     - the contents of `_antDist/lib` should be copied to `/usr/sw/solgeneos/monitors`
