@@ -195,7 +195,7 @@ public class VPNRecordSEMPParser extends SampleSEMPParser {
 
     // characters() method is called when character data is found by SAXParser inside an element. 
     // Note that SAX parser may divide the data into multiple chunks and call characters() method multiple times 
-    // That’s why we are using StringBuilder to keep this data for each element of interest using append() method.
+    // Thats why we are using StringBuilder to keep this data for each element of interest using append() method.
     @Override
     public void characters(char[] ch, int start, int length) throws SAXException {
     	super.characters(ch, start, length);

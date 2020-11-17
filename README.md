@@ -11,6 +11,7 @@ This repository contains further examples of custom monitors that can support mo
 ------------ | 
 Customer developed monitors and example code, such as those in this project, are not supported by Solace as part of the SolGeneos product support. Check out [CONTRIBUTING.md](CONTRIBUTING.md) to raise issues/bugs, submit fixes, request features, submit features, submit ideas, or to ask questions.  Responses will be 'best effort' from [contributors](https://github.com/solacese/solgeneos-custom-monitors/graphs/contributors). | 
 
+*:point_down: [Click to jump ahead to usage instructions](#how-to-use-this-repository)*   
 
 ## Custom Monitors Index
 
@@ -139,6 +140,35 @@ To deploy to an appliance environment:
 - the contents of `_antDist/config` should be copied to `/usr/sw/solgeneos/config`
 
 A restart of the `solgeneos` service will then activate the new monitors.
+
+### Step by step instructions
+
+1. Download the latest `sol-geneossample-<version>.tar.gz` file from the customer downloads area. [(Products > SolGeneos)](https://products.solace.com/)
+1. Extract the tar archive at a suitable location on your build machine  
+    `tar -xvf sol-geneossample-*.tar.gz`
+1. Clone the git repo to the same directory (or download the zip and extract contents)   
+    `git clone https://github.com/SolaceLabs/solgeneos-custom-monitors`  
+1. Merge/replace the contents of the repo with the `solgeneossample` directory contents  
+    `cp solgeneos-custom-monitors/build.* solgeneossample/`  
+    `cp -r solgeneos-custom-monitors/lib solgeneossample/`  
+    `cp -r solgeneos-custom-monitors/config solgeneossample/`  
+    `cp -r solgeneos-custom-monitors/src solgeneossample/`  
+1. Install Ant and 1.8 JDK if required and set JAVA_HOME  
+    `export JAVA_HOME="/path/to/java/jdk/1.8/"`
+1. Move into `solgeneossample` directory and build with Ant  
+    `cd solgeneossample/`  
+    `ant dist`  
+1. Set the hostname of your dev broker to deploy to in `build.properties`  
+    `dev.appliance.hostname=192.168.31.50`
+1. Use Ant to scp relevant files to the broker (available if Ant setup with [optional scp/ssh libraries on your system](https://ant.apache.org/manual/Tasks/scp.html))  
+    `ant deploy`  
+      
+    If copying manually:  
+    - the contents of `_antDist/lib` should be copied to `/usr/sw/solgeneos/monitors`
+    - the contents of `_antDist/config` should be copied to `/usr/sw/solgeneos/config`
+1. On the dev broker restart the SolGeneos agent to activate new monitors  
+    `/bin/systemctl restart solgeneos`
+    
 
 ## Contributing
 
