@@ -150,9 +150,10 @@ A restart of the `solgeneos` service will then activate the new monitors.
     `git clone https://github.com/SolaceLabs/solgeneos-custom-monitors`  
 1. Merge/replace the contents of the repo with the `solgeneossample` directory contents  
     `cp solgeneos-custom-monitors/build.* solgeneossample/`  
-    `cp -r solgeneos-custom-monitors/lib solgeneossample/`  
     `cp -r solgeneos-custom-monitors/config solgeneossample/`  
     `cp -r solgeneos-custom-monitors/src solgeneossample/`  
+1. Copy `httpclient` library supplied with `solgeneossample` to `bundledLib` directory     
+    `cp solgeneossample/lib/compileLib/httpclient-*.jar solgeneossample/lib/bundledLib/`  
 1. Install Ant and 1.8 JDK if required and set JAVA_HOME  
     `export JAVA_HOME="/path/to/java/jdk/1.8/"`
 1. Move into `solgeneossample` directory and build with Ant  
