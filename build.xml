@@ -73,28 +73,98 @@
 
 	<!-- build -->
 	<target name="build" depends="compile" description="Build monitor jars">
-		<echo>create ${jarname.users.monitor}.jar in ${dist.dir.name}</echo>
-		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.users.monitor}.jar">
-			<fileset dir="${basedir}/${output.dir.name}">
-				<include name="**/*.class"/>
-			</fileset>
-		</jar>		
 		<echo>create ${jarname.util}.jar in ${dist.dir.name}</echo>
 		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.util}.jar">
 			<fileset dir="${basedir}/${output.dir.name}">
 				<include name="**/util/*.class"/>
 			</fileset>
+		</jar>	
+		<!-- Users Monitor Jar: -->
+		<echo>create ${jarname.users.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.users.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.users.monitor}*.class"/>
+			</fileset>
+		</jar>		
+		<!-- QueuesEx Monitor Jar: -->
+		<echo>create ${jarname.queues.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.queues.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.queues.monitor}*.class"/>
+			</fileset>
+		</jar>	
+		<!-- TopicEndpointsEx Monitor Jar: -->
+		<echo>create ${jarname.topicendpoints.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.topicendpoints.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.topicendpoints.monitor}*.class"/>
+			</fileset>
+		</jar>			
+		<!-- MessageVPNLimits Monitor Jar: -->
+		<echo>create ${jarname.vpnlimits.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.vpnlimits.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.vpnlimits.monitor}*.class"/>
+			</fileset>
 		</jar>
+		<!-- MessageRates Monitor Jar: -->
+		<echo>create ${jarname.messagerates.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.messagerates.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.messagerates.monitor}*.class"/>
+			</fileset>
+		</jar>
+		<!-- ClientsTopPublishers Monitor Jar: -->
+		<echo>create ${jarname.toppublishers.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.toppublishers.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.toppublishers.monitor}*.class"/>
+			</fileset>
+		</jar>
+		<!-- ClientsSlowSubscribers Monitor Jar: -->
+		<echo>create ${jarname.slowsubscribers.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.slowsubscribers.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.slowsubscribers.monitor}*.class"/>
+			</fileset>
+		</jar>				
+		
 		<chmod perm="755">
 			<fileset dir="${basedir}/${dist.dir.name}/config"/>
 			<fileset dir="${basedir}/${dist.dir.name}/lib"/>
 		</chmod>
 	</target>
+	
+	<!-- build advanced -->
+		<target name="build-advanced" depends="compile" description="Build advanced monitor jars">
+			<echo>create ${jarname.messagingtester}.jar in ${dist.dir.name}</echo>
+			<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.messagingtester}.jar">
+				<fileset dir="${basedir}/${output.dir.name}">
+					<include name="**/messaging/*.class"/>
+				</fileset>
+			</jar>	
+			<!-- MessagingTest Monitor Jar: -->
+			<echo>create ${jarname.messagingtest.monitor}.jar in ${dist.dir.name}</echo>
+			<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.messagingtest.monitor}.jar">
+				<fileset dir="${basedir}/${output.dir.name}">
+					<include name="**/${filenamepattern.messagingtest.monitor}*.class"/>
+				</fileset>
+			</jar>	
+			<chmod perm="755">
+				<fileset dir="${basedir}/${dist.dir.name}/config"/>
+				<fileset dir="${basedir}/${dist.dir.name}/lib"/>
+			</chmod>
+		</target>
+	
 
 	<!-- clean build for distribution -->
 	<target name="dist" depends="clean, build" description="Clean output and then build monitor jars">
 	</target>
 
+	<!-- clean build for advanced distribution -->
+	<target name="dist-advanced" depends="clean, build, build-advanced" description="Clean output and then build monitor jars, including advanced ones">
+	</target>
+		
 	<!-- copy the changed libs and configs to dev appliance -->
 	<!-- task depends on jsch-0.1.55.jar being available in ant/lib -->
 	<target name="deploy" depends="readProperties" description="Copy monitor jars to dev appliance">
@@ -116,6 +186,33 @@
 		<echo>Copying modified config files from ${basedir}/${dist.dir.name}/config to dev appliance</echo>
 		<scp todir="${dev.appliance.user}@${dev.appliance.hostname}:${deploy.monitor.configs.dir}" trust="true" sftp="true" password="${scp.pass}">
 			<fileset dir="${basedir}/${dist.dir.name}/config">
+				<include name="*.properties"/>
+				<modified>
+					<param name="cache.cachefile" value="${scp.tracking.cachefile}"/>
+				</modified>
+			</fileset>
+		</scp>
+	</target>
+	
+	<target name="deploy-advanced" depends="readProperties" description="Copy advanced monitor jars to dev appliance">
+	
+		<input message="Please enter the password for ${dev.appliance.user} user:" addproperty="scp.pass">
+			<handler classname="org.apache.tools.ant.input.SecureInputHandler" />
+		</input>
+		
+		<echo>Copying modified jar files from ${basedir}/${dist.dir.name}/lib to dev appliance</echo>
+		<scp todir="${dev.appliance.user}@${dev.appliance.hostname}:${deploy.monitor.jars.dir}" trust="true" sftp="true" password="${scp.pass}">
+			<fileset dir="${basedir}/${dist.dir.name}/lib">
+				<include name="*.jar"/>
+				<modified>
+					<param name="cache.cachefile" value="${scp.tracking.cachefile}"/>
+				</modified>
+			</fileset>
+		</scp>
+		
+		<echo>Copying modified config files from ${basedir}/${dist.dir.name}/config/advanced to dev appliance</echo>
+		<scp todir="${dev.appliance.user}@${dev.appliance.hostname}:${deploy.monitor.configs.dir}" trust="true" sftp="true" password="${scp.pass}">
+			<fileset dir="${basedir}/${dist.dir.name}/config/advanced">
 				<include name="*.properties"/>
 				<modified>
 					<param name="cache.cachefile" value="${scp.tracking.cachefile}"/>
