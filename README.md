@@ -150,9 +150,10 @@ A restart of the `solgeneos` service will then activate the new monitors.
     `git clone https://github.com/SolaceLabs/solgeneos-custom-monitors`  
 1. Merge/replace the contents of the repo with the `solgeneossample` directory contents  
     `cp solgeneos-custom-monitors/build.* solgeneossample/`  
-    `cp -r solgeneos-custom-monitors/lib solgeneossample/`  
     `cp -r solgeneos-custom-monitors/config solgeneossample/`  
     `cp -r solgeneos-custom-monitors/src solgeneossample/`  
+1. Copy `httpclient` library supplied with `solgeneossample` to `bundledLib` directory     
+    `cp solgeneossample/lib/compileLib/httpclient-*.jar solgeneossample/lib/bundledLib/`  
 1. Install Ant and 1.8 JDK if required and set JAVA_HOME  
     `export JAVA_HOME="/path/to/java/jdk/1.8/"`
 1. Move into `solgeneossample` directory and build with Ant  
@@ -161,7 +162,7 @@ A restart of the `solgeneos` service will then activate the new monitors.
 1. Set the hostname of your dev broker to deploy to in `build.properties`  
     `dev.appliance.hostname=192.168.31.50`
 1. Use Ant to scp relevant files to the broker (available if Ant setup with [optional scp/ssh libraries on your system](https://ant.apache.org/manual/Tasks/scp.html))  
-    `scp deploy`  
+    `ant deploy`  
       
     If copying manually:  
     - the contents of `_antDist/lib` should be copied to `/usr/sw/solgeneos/monitors`
