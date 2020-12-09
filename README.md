@@ -25,7 +25,7 @@ No.  | Name | Function |
 6 | [BrokerLimits Monitor](#6-brokerlimits-monitor) | New monitor to clearly display 'current allocated vs. broker hard limit' of various capacity related resources |
 7 | [ClientsTopPublishers Monitor](#7-clientstoppublishers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
 8 | [ClientsSlowSubscribers Monitor](#8-clientsslowsubscribers-monitor) | New monitor to show all clients the broker has determined to be slow subscribers |
-
+9 | [MessagingTester Monitor](#9-messagingtester-monitor) | New monitor for 'synthetic monitoring', periodically performing message send and receive to validate the infrastructure more holistically |
 
 ### (1) Users Monitor
 
@@ -85,6 +85,9 @@ Sample of the new headlines and columns available in the primary `MessageRates` 
 Sample of the high water mark (HWM) values that are tracked in the additional `MessageRatesHWM` dataview. Note that the full context of other rate metrics and top talkers at the time of the HWM rate is also retained for reference and context.
 ![MessageRatesHWM Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample.png?raw=true)
 
+Additionally note how the high water mark (HWM) values can be searched for the specific metric of interest. Then for that metric, each HWM type (e.g. daily high, current month's high, all-time high) can be easily reviewed:  
+![MessageRatesHWM Dataview Sample - Search](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample%20-%20Search%20Bar.png?raw=true)
+
 ### (5) MessageVPNLimits Monitor
 
 This monitor provides new functionality to look at resource related limits at a per-VPN level. As part of the multi-tenancy approach to using the brokers, various limits are applied at each message-VPN when it is created, each message-VPN in effect being a virtual slice of the overall broker and its resources.
@@ -117,6 +120,26 @@ This monitor shows the connected clients that are marked by the broker as being 
 
 Sample of the new dataview showing (if any) clients that are being slow:  
 ![ClientsSlowSubscribers Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/ClientsSlowSubscribers%20-%20Dataview%20Sample.png?raw=true)
+
+### (9) MessagingTester Monitor
+
+This monitor can be considered an 'advanced' monitor in that it goes beyond looking at metrics to perform ['synthetic monitoring'](https://en.wikipedia.org/wiki/Synthetic_monitoring) by periodically performing message send and receive tests using the broker's SMF client API. The effect is a more holistic peace of mind that the event broker is healthy because all surrounding infrastructure is also covered in the test.   
+Consider what could be involved in the scenario of an application connecting to the broker: 
+1. A DNS lookup is performed of the connection URI. - This relies on the DNS system having the correct entries and being accesible.
+2. A load-balancer may be fronting your active-stanby event broker. - This relies on the load-balancer being available and correctly routing new connections.
+
+Consider an application that is successfully connected _but_ the surrounding infrastructure is suffering from the following issues:
+1. Network congestion / packet loss that is leading to increased latency on the message publish or subscribe.
+2. Storage layer congestion or failures leading to slower persistence of guaranteed messaging.
+
+These are all in the category of failures that are application impacting but may not be detected in the narrow focus of just ensuring the event broker itself is reporting healthy.  
+
+This is what [synthetic monitoring](https://en.wikipedia.org/wiki/Synthetic_monitoring) via this monitor example is intended to achieve. 
+
+Sample of the new dataview showing an inability to resolve the SMF connection URI:  
+![MessagingTester Dataview Sample 1](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessagingTester%20-%20Dataview%20Sample%20-%20Error%201.png?raw=true)
+Sample of the new dataview showing an inability to publish new persistent messages as the storage spool is full/unavailable: 
+![MessagingTester Dataview Sample 2](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessagingTester%20-%20Dataview%20Sample%20-%20Error%202.png?raw=true)
 
 
 ## How to use this repository
@@ -152,7 +175,7 @@ A restart of the `solgeneos` service will then activate the new monitors.
     `cp solgeneos-custom-monitors/build.* solgeneossample/`  
     `cp -r solgeneos-custom-monitors/config solgeneossample/`  
     `cp -r solgeneos-custom-monitors/src solgeneossample/`  
-1. Copy `httpclient` library supplied with `solgeneossample` to `bundledLib` directory     
+1. Copy `httpclient` library supplied with `solgeneossample` to `bundledLib` directory  
     `cp solgeneossample/lib/compileLib/httpclient-*.jar solgeneossample/lib/bundledLib/`  
 1. Install Ant and 1.8 JDK if required and set JAVA_HOME  
     `export JAVA_HOME="/path/to/java/jdk/1.8/"`
@@ -169,8 +192,27 @@ A restart of the `solgeneos` service will then activate the new monitors.
     - the contents of `_antDist/config` should be copied to `/usr/sw/solgeneos/config`
 1. On the dev broker restart the SolGeneos agent to activate new monitors  
     `/bin/systemctl restart solgeneos`
-    
 
+### Additional steps for building the 'advanced' monitors
+
+1. Download the latest Solace PubSub+ Java API (`sol-jcsmp-10.x.y`) from [here.](https://products.solace.com/download/JAVA_API)
+1. Extract the archive and navigate to the Jar file: `lib\sol-jcsmp-10.x.y.jar`
+1. Copy that file to `bundledLib` and `compileLib` directories under `solgeneossample/lib/`  
+    `cp sol-jcsmp-*.jar solgeneossample/lib/compileLib`  
+    `cp sol-jcsmp-*.jar solgeneossample/lib/bundledLib`
+1. Move into `solgeneossample` directory and build with Ant advanced tasks  
+    `cd solgeneossample/`  
+    `ant dist-advanced`  
+1. Use Ant to scp relevant files to the broker (available if Ant setup with [optional scp/ssh libraries on your system](https://ant.apache.org/manual/Tasks/scp.html))  
+    `ant deploy-advanced`  
+      
+    If copying manually:  
+    - the contents of `_antDist/lib` should be copied to `/usr/sw/solgeneos/monitors`
+    - the contents of `_antDist/config/advanced` should be copied to `/usr/sw/solgeneos/config`
+1. On the dev broker restart the SolGeneos agent to activate new monitors  
+    `/bin/systemctl restart solgeneos`
+    
+    
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
