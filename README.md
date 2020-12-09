@@ -126,7 +126,7 @@ Sample of the new dataview showing (if any) clients that are being slow:
 This monitor can be considered an 'advanced' monitor in that it goes beyond looking at metrics to perform ['synthetic monitoring'](https://en.wikipedia.org/wiki/Synthetic_monitoring) by periodically performing message send and receive tests using the broker's SMF client API. The effect is a more holistic peace of mind that the event broker is healthy because all surrounding infrastructure is also covered in the test.   
 Consider what could be involved in the scenario of an application connecting to the broker: 
 1. A DNS lookup is performed of the connection URI. - This relies on the DNS system having the correct entries and being accesible.
-2. A load-balancer may be fronting your active-stanby event broker. - This relies on the load-balancer being available and correctly routing new connections.
+2. A load-balancer may be fronting your active-standby event broker. - This relies on the load-balancer being available and correctly routing new connections.
 
 Consider an application that is successfully connected _but_ the surrounding infrastructure is suffering from the following issues:
 1. Network congestion / packet loss that is leading to increased latency on the message publish or subscribe.
