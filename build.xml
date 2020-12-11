@@ -29,13 +29,6 @@
 		<!-- Setup staging -->
 		<antcall target="setupStaging"/>
 
-		<!-- Copy source to temp -->
-		<!-- This is an opportunity to pre-process the java source files if we have to -->
-    	<copy todir="${basedir}/${tempsrc.dir.name}">
-    		<fileset dir="src">
-			</fileset>
-    	</copy>
-
     	<mkdir dir="${basedir}/${output.dir.name}"/>
 
 		<!-- The classpath -->
@@ -52,6 +45,17 @@
 	<!-- compiles -->
     <target name="compile" depends="init">
     	<echo> Compiling...  </echo>
+		
+		<!-- Copy source to temp -->
+    	<copy todir="${basedir}/${tempsrc.dir.name}">
+    		<fileset dir="src">
+				<patternset>
+					<exclude name="**/${filenamepattern.messagingtester}*"/>
+					<exclude name="**/${filenamepattern.messagingtest.monitor}*"/>
+				</patternset>
+			</fileset>
+    	</copy>
+		
         <javac  includeantruntime="false"
 				source="${compile.source}"
         		target="${compile.target}"
@@ -63,6 +67,31 @@
         </javac>
     </target>
 
+	<!-- compiles advanced monitors -->
+    <target name="compile-advanced" depends="init">
+    	<echo> Compiling Advanced...  </echo>
+		
+		<!-- Copy source to temp -->
+    	<copy todir="${basedir}/${tempsrc.dir.name}">
+    		<fileset dir="src">
+				<patternset>
+					<include name="**/${filenamepattern.messagingtester}*"/>
+					<include name="**/${filenamepattern.messagingtest.monitor}*"/>
+				</patternset>
+			</fileset>
+    	</copy>
+		
+        <javac  includeantruntime="false"
+				source="${compile.source}"
+        		target="${compile.target}"
+			    debug="${compile.debug}"
+        	    optimize="${compile.optimize}"
+        	    srcdir="${basedir}/${tempsrc.dir.name}" destdir="${basedir}/${output.dir.name}"
+        	    includes="" excludes="">
+            <classpath refid="project.classpath"/>
+        </javac>
+    </target>
+	
 	<!-- cleans -->
 	<target name="clean" depends="readProperties" description="Clean output">
 		<delete dir="${basedir}/${dist.dir.name}"/>
@@ -136,7 +165,7 @@
 	</target>
 	
 	<!-- build advanced -->
-		<target name="build-advanced" depends="compile" description="Build advanced monitor jars">
+		<target name="build-advanced" depends="compile-advanced" description="Build advanced monitor jars">
 			<echo>create ${jarname.messagingtester}.jar in ${dist.dir.name}</echo>
 			<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.messagingtester}.jar">
 				<fileset dir="${basedir}/${output.dir.name}">
