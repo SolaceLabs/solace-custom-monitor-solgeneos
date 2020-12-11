@@ -1,0 +1,179 @@
+<ruleGroup name="Log file monitoring">
+    <ruleGroup name="SolGeneos Agent">
+        <rule name="Log trigger details">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler[(@name=&quot;SolGeneos Log&quot;)]/dataview/rows/row[contains(@name,&quot;#&quot;)]/cell[(@column=&quot;triggerDetails&quot;)]</target>
+            </targets>
+            <priority>1</priority>
+            <block>
+                <!-- So there will be a new row per triggered pattern from the logs.-->
+                <!-- Each entry that appears should be coloured/alert but need to determine the right severity-->
+                <!-- The fkm pattern for each the key already classifies as either 'warning' or 'fail' the log event-->
+                <!-- Use that information to colour the cell appropriately-->
+                <set>
+                    <var ref="row_id"></var>
+                    <target>
+                        <rowName></rowName>
+                    </target>
+                </set>
+                <if>
+                    <like>
+                        <var ref="row_id"></var>
+                        <string>*#warning*</string>
+                    </like>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>warning</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <like>
+                            <var ref="row_id"></var>
+                            <string>*#fail*</string>
+                        </like>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>critical</severity>
+                            </update>
+                        </transaction>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>undefined</severity>
+                            </update>
+                        </transaction>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Process instance count">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler[(@name=&quot;SolGeneos Process&quot;)]/dataview/rows/row/cell[(@column=&quot;instanceCount&quot;)]</target>
+            </targets>
+            <priority>1</priority>
+            <block>
+                <!-- A rule to make sure the SolGeneos agent process is running. Should be a service with a watchdog so it auto restarts. So if not up after 60 seconds there is a problem-->
+                <if>
+                    <lt>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <integer>1</integer>
+                    </lt>
+                    <transaction>
+                        <delay>60</delay>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>critical</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <equal>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <integer>1</integer>
+                        </equal>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>undefined</severity>
+                            </update>
+                        </transaction>
+                    </if>
+                </if>
+            </block>
+        </rule>
+    </ruleGroup>
+    <ruleGroup name="Solace System Log">
+        <rule name="Status Override">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler[(@name=&quot;Solace_System_Log&quot;)]/dataview[(@name=&quot;Solace_System_Log&quot;)]/rows/row[(@name=&quot;/usr/sw/jail/logs/system.log&quot;)]/cell[(@column=&quot;status&quot;)]</target>
+            </targets>
+            <priority>1</priority>
+            <block>
+                <!-- For the FKM sampler, will alert off the triggerDetails cell, so supressing this one in case any other baseline rules are applying on it.-->
+                <!-- The status cell only shows one entry, usually the most recent or highest severity level log line.-->
+                <!-- The triggerDetails cell contains the log line and 'message' from the key, and there is one per unique pattern trigger.-->
+                <!-- So placing a rule on that cell is better.-->
+                <!-- If no triggers currently active and all is good, this cell can show green for the OK though.-->
+                <if>
+                    <equal>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <string>OK</string>
+                    </equal>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>undefined</severity>
+                        </update>
+                    </transaction>
+                </if>
+            </block>
+        </rule>
+        <rule name="Log event trigger details">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler[(@name=&quot;Solace_System_Log&quot;)]/dataview[(@name=&quot;Solace_System_Log&quot;)]/rows/row[wild(@name,&quot;/usr/sw/jail/logs/system.log#*&quot;)]/cell[(@column=&quot;triggerDetails&quot;)]</target>
+            </targets>
+            <priority>1</priority>
+            <block>
+                <!-- So there will be a new row per triggered pattern from the logs.-->
+                <!-- Each entry that appears should be coloured/alert but need to determine the right severity-->
+                <!-- The fkm pattern for each the key already classifies as either 'warning' or 'fail' the log event-->
+                <!-- Use that information to colour the cell appropriately-->
+                <set>
+                    <var ref="row_id"></var>
+                    <target>
+                        <rowName></rowName>
+                    </target>
+                </set>
+                <if>
+                    <like>
+                        <var ref="row_id"></var>
+                        <string>*#warning*</string>
+                    </like>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>warning</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <like>
+                            <var ref="row_id"></var>
+                            <string>*#fail*</string>
+                        </like>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>critical</severity>
+                            </update>
+                        </transaction>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>undefined</severity>
+                            </update>
+                        </transaction>
+                    </if>
+                </if>
+            </block>
+        </rule>
+    </ruleGroup>
+</ruleGroup>
