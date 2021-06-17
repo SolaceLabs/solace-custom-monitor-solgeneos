@@ -1,6 +1,6 @@
 # SolGeneos Custom Monitors
 
-## What's in this repository?
+## Overview
 
 The [Solace Geneos Agent (a.k.a SolGeneos)](https://docs.solace.com/SolGeneos-Agent/SolGeneos-Overview.htm) allows for the monitoring of Solace [Event Brokers](https://solace.com/what-is-an-event-broker/) in the [Geneos](https://www.itrsgroup.com/products/geneos) monitoring tool by [ITRS](https://www.itrsgroup.com/).  
 While coming with a large number of [dataviews](https://docs.solace.com/SolGeneos-Agent/Default-SolGeneos-Agent-Data-Views.htm) to monitor various product aspects such as pending messages on queues, health of the underlying hardware, and connectivity status to other event-brokers, SolGeneos is an extendable framework that allows customers to [build additional monitors](https://docs.solace.com/SolGeneos-Agent/Monitor-Dev-and-Deployment.htm) for dataviews containing metrics specific to their own requirements.
@@ -12,6 +12,15 @@ This repository contains further examples of custom monitors that can support mo
 Customer developed monitors and example code, such as those in this project, are not supported by Solace as part of the SolGeneos product support. Check out [CONTRIBUTING.md](CONTRIBUTING.md) to raise issues/bugs, submit fixes, request features, submit features, submit ideas, or to ask questions.  Responses will be 'best effort' from [contributors](https://github.com/solacese/solgeneos-custom-monitors/graphs/contributors). | 
 
 *:point_down: [Click to jump ahead to usage instructions](#how-to-use-this-repository)*   
+
+## Table of contents
+* [Custom Monitors Index](#Custom-Monitors-Index)
+* [How to use this repository](#How-to-use-this-repository)
+* [Contributing](#contributing)
+* [Authors](#authors)
+* [License](#license)
+* [Resources](#resources)
+
 
 ## Custom Monitors Index
 
