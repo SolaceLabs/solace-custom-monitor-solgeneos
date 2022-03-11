@@ -181,7 +181,6 @@ A restart of the `solgeneos` service will then activate the new monitors.
 1. Clone the git repo to the same directory (or download the zip and extract contents)   
     `git clone https://github.com/SolaceLabs/solace-custom-monitor-solgeneos`  
 1. Merge/replace the contents of the repo with the `solgeneossample` directory contents  
-    `cp solace-custom-monitor-solgeneos/build.* solgeneossample/`  
     `cp -r solace-custom-monitor-solgeneos/config solgeneossample/`  
     `cp -r solace-custom-monitor-solgeneos/src solgeneossample/`  
 1. Copy `httpclient` library supplied with `solgeneossample` to `bundledLib` directory  
