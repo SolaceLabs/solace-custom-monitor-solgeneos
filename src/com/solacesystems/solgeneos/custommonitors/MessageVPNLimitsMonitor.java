@@ -36,7 +36,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0";
+	static final public String MONITOR_VERSION = "1.1";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_VPN_DETAILS_REQUEST = 
@@ -333,6 +333,20 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 			
 			// Then use this merged columns information to set the final display order
 			this.setDesiredColumnOrder(currentColumnNames);
+		}
+		
+		// Have the broker limits been successfully initialized? Expected to be done in onPostInitialize() but double check before using it
+		if (this.brokerLimitsLookup == null) {
+			getLogger().error("Broker limits were not initialized in onPostInitialize(). Will attempt again now inside onCollect()");
+			
+			try {
+				this.setBrokerLimits();
+			}
+			catch (Exception e) {
+    			getLogger().error("An exception occurred during broker limits initialisation attempt inside onCollect(). " + e.getMessage());
+    			// Whatever is going wrong here, likely will affect remainder of onCollect() so just give up this run
+    			throw new Exception("Broker limits is failing to initialize, purposefully aborting onCollect()");
+			}
 		}
 		
 		// Merge the two responses, keyed on the vpn-name, into a combined table
