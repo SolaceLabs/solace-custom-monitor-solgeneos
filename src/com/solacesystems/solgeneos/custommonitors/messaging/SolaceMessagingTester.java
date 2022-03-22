@@ -79,6 +79,8 @@ public class SolaceMessagingTester {
 	        properties.setProperty(JCSMPProperties.VPN_NAME, this.testVpn);
 	        properties.setProperty(JCSMPProperties.USERNAME, this.testUser);  
 	        properties.setProperty(JCSMPProperties.PASSWORD, this.testUserPassword);
+	        // If connecting over TLS, *not* validating broker's certificate, thereby avoiding trust store setup and filesystem referencing needs for simplicity 
+	        properties.setProperty(JCSMPProperties.SSL_VALIDATE_CERTIFICATE, false);	
 	        
 			try {
 				session = JCSMPFactory.onlyInstance().createSession(properties);
