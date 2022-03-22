@@ -9,7 +9,7 @@ This repository contains further examples of custom monitors that can support mo
 
 :warning: Important Notice :warning: | 
 ------------ | 
-Customer developed monitors and example code, such as those in this project, are not supported by Solace as part of the SolGeneos product support. Check out [CONTRIBUTING.md](CONTRIBUTING.md) to raise issues/bugs, submit fixes, request features, submit features, submit ideas, or to ask questions.  Responses will be 'best effort' from [contributors](https://github.com/solacese/solgeneos-custom-monitors/graphs/contributors). | 
+Customer developed monitors and example code, such as those in this project, are not supported by Solace as part of the SolGeneos product support. Check out [CONTRIBUTING.md](CONTRIBUTING.md) to raise issues/bugs, submit fixes, request features, submit features, submit ideas, or to ask questions.  Responses will be 'best effort' from [contributors](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/graphs/contributors). | 
 
 *:point_down: [Click to jump ahead to usage instructions](#how-to-use-this-repository)*   
 
@@ -35,6 +35,7 @@ No.  | Name | Function |
 7 | [ClientsTopPublishers Monitor](#7-clientstoppublishers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
 8 | [ClientsSlowSubscribers Monitor](#8-clientsslowsubscribers-monitor) | New monitor to show all clients the broker has determined to be slow subscribers |
 9 | [MessagingTester Monitor](#9-messagingtester-monitor) | New monitor for 'synthetic monitoring', periodically performing message send and receive to validate the infrastructure more holistically |
+10 | [SoftwareSystemHealth Monitor](#10-softwaresystemhealth-monitor) | New monitor specifically for Software Broker deployments. Providing health metrics for the environment the broker is deployed in |
 
 ### (1) Users Monitor
 
@@ -63,18 +64,18 @@ This monitor is an extended version for monitoring queues, compared to the `Queu
 * The introduction of a new "Targeted Multi Record SEMP Parser" that can be used in a generic fashion across different SEMP queries to extract records of interest, with filters for the fields required to be returnd and excludes for sections to skip parsing. 
 
 Sample of the new headlines and columns available:
-![QueuesEx Combined Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/QueuesEx%20-%20Dataview%20Sample.png?raw=true)
+![QueuesEx Combined Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/QueuesEx%20-%20Dataview%20Sample.png?raw=true)
 
 Sample of being able to create per-VPN views of the queues:
 
-![QueuesEx Per-VPN Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/QueuesEx%20-%20Per-VPN%20Dataviews.jpg?raw=true)
+![QueuesEx Per-VPN Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/QueuesEx%20-%20Per-VPN%20Dataviews.jpg?raw=true)
 
 ### (3) TopicEndpointsEx Monitor
 
 This monitor is an extended version for monitoring topic endpoints, compared to the `TopicEndpoints` monitor available in the product install.  Enhancements over the original version include all those listed for the `QueuesEx` monitor mentioned above. This monitor is near identical in output to the extended queues monitor and thus provides the same new advantages.
 
 Sample of the new headlines and columns available:
-![TopicEndpointsEx Combined Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/TopicEndpointsEx%20-%20Dataview%20Sample.png?raw=true)
+![TopicEndpointsEx Combined Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/TopicEndpointsEx%20-%20Dataview%20Sample.png?raw=true)
 
 
 ### (4) MessageRates Monitor
@@ -89,13 +90,13 @@ Features implemented in the monitor include:
 * Similar to previous monitors in this repository, the implementation of a max-row count to limit the amount of data sent to the Geneos gateway and any load issues this may cause. A sorting is done to ensure the VPNs with the highest average byte rate is near the top before the dataview is truncated. (The broker-wide computed values continue to act on the full dataset of all VPNs configured on the broker.)
 
 Sample of the new headlines and columns available in the primary `MessageRates` dataview:
-![MessageRates Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRates%20-%20Dataview%20Sample.png?raw=true)
+![MessageRates Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/MessageRates%20-%20Dataview%20Sample.png?raw=true)
 
 Sample of the high water mark (HWM) values that are tracked in the additional `MessageRatesHWM` dataview. Note that the full context of other rate metrics and top talkers at the time of the HWM rate is also retained for reference and context.
-![MessageRatesHWM Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample.png?raw=true)
+![MessageRatesHWM Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample.png?raw=true)
 
 Additionally note how the high water mark (HWM) values can be searched for the specific metric of interest. Then for that metric, each HWM type (e.g. daily high, current month's high, all-time high) can be easily reviewed:  
-![MessageRatesHWM Dataview Sample - Search](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample%20-%20Search%20Bar.png?raw=true)
+![MessageRatesHWM Dataview Sample - Search](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/MessageRatesHWM%20-%20Dataview%20Sample%20-%20Search%20Bar.png?raw=true)
 
 ### (5) MessageVPNLimits Monitor
 
@@ -106,7 +107,7 @@ Features implemented in the monitor include:
 * A computed "utilisation score" is done for each message-VPN to highlight those needing attention versus those that don't. This score is used to help prioritise the message-VPNs that should be caught in the dataview if the number of message-VPNs on the broker is higher than the `max rows` limit configured for the dataview. 
 
 Sample of the new dataview showing various resource usage and their max limit:
-![MessageVPNLimits Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessageVPNLimits%20-%20Dataview%20Sample.png?raw=true)
+![MessageVPNLimits Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/MessageVPNLimits%20-%20Dataview%20Sample.png?raw=true)
 
 ### (6) BrokerLimits Monitor
 
@@ -114,21 +115,21 @@ This monitor provides new functionality to look at resource related limits at a 
 Additionally, if an organisation is also adopting a policy of 'overcommitting' or 'overbooking' the broker resources to the underlying message-VPNs that are created, this monitor will make it easy to monitor the actual usage of a resource versus the known hard limit.
 
 Sample of the new dataview showing various resources for their current usage, total allocation to the configured message-VPNs, and the actual hard limit:  
-![BrokerLimits Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/BrokerLimits%20-%20Dataview%20Sample.png?raw=true)
+![BrokerLimits Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/BrokerLimits%20-%20Dataview%20Sample.png?raw=true)
 
 ### (7) ClientsTopPublishers Monitor
 
 This monitor augments the earlier `MessageRates` Monitor (#4 above) to show message and byte rate activity at an individual client level. The dataview quite simply shows the top 10 connected clients when ordered by the average publishing byte rate. For a holistic view, the dataset also includes the current and average message rate of the client, the current byte rate, and the total published bytes for each client.
 
 Sample of the new dataview showing (upto) the top 10 publishers:  
-![ClientsTopPublishers Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/ClientsTopPublishers%20-%20Dataview%20Sample.png?raw=true)
+![ClientsTopPublishers Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/ClientsTopPublishers%20-%20Dataview%20Sample.png?raw=true)
 
 ### (8) ClientsSlowSubscribers Monitor
 
 This monitor shows the connected clients that are marked by the broker as being slow subscribers. That is, the clients are not servicing their network sockets fast enough to keep up with what the broker is transmitting to it. While these clients cannot cause adverse impact to the broker (and will automatically be disconnected if necessary), this monitor allows for such applications to be proactively detected so operational troubleshooting can take place. Most often, these clients are ones that are either bandwidth or CPU constrained on the host they reside, so detecting this condition early to take some action can prevent a wider outage for the application.
 
 Sample of the new dataview showing (if any) clients that are being slow:  
-![ClientsSlowSubscribers Dataview Sample](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/ClientsSlowSubscribers%20-%20Dataview%20Sample.png?raw=true)
+![ClientsSlowSubscribers Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/ClientsSlowSubscribers%20-%20Dataview%20Sample.png?raw=true)
 
 ### (9) MessagingTester Monitor
 
@@ -146,10 +147,18 @@ These are all in the category of failures that are application impacting but may
 This is what [synthetic monitoring](https://en.wikipedia.org/wiki/Synthetic_monitoring) via this monitor example is intended to achieve. 
 
 Sample of the new dataview showing an inability to resolve the SMF connection URI:  
-![MessagingTester Dataview Sample 1](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessagingTester%20-%20Dataview%20Sample%20-%20Error%201.png?raw=true)
+![MessagingTester Dataview Sample 1](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/MessagingTester%20-%20Dataview%20Sample%20-%20Error%201.png?raw=true)
 Sample of the new dataview showing an inability to publish new persistent messages as the storage spool is full/unavailable: 
-![MessagingTester Dataview Sample 2](https://github.com/solacese/solgeneos-custom-monitors/blob/master/images/MessagingTester%20-%20Dataview%20Sample%20-%20Error%202.png?raw=true)
+![MessagingTester Dataview Sample 2](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/MessagingTester%20-%20Dataview%20Sample%20-%20Error%202.png?raw=true)
 
+### (10) SoftwareSystemHealth Monitor
+
+This monitor shows the runtime metrics as reported by the `show system health` CLI command, allowing for the health and performance of the underlying infrastructure of a Software Broker deployment to be monitored. More information for these metrics is available at this [documentation link](https://docs.solace.com/System-and-Software-Maintenance/SW-Health-Monitoring.htm#Direct). 
+
+**Note:** The configuration for this monitor is disabled by default, and needs to set `autoStart=true` to enable it when the broker being monitored is the software option.
+
+Sample of the new dataview showing the latency metrics for health assessment:  
+![SoftwareSystemHealth Dataview Sample](https://github.com/itsJamilAhmed/solace-custom-monitor-solgeneos/blob/master/images/SoftwareSystemHealth%20-%20Dataview%20Sample.png?raw=true)
 
 ## How to use this repository
 
