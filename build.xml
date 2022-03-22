@@ -157,6 +157,13 @@
 				<include name="**/${filenamepattern.slowsubscribers.monitor}*.class"/>
 			</fileset>
 		</jar>
+		<!-- SoftwareSystemHealth Monitor Jar: -->
+		<echo>create ${jarname.softwaresystemhealth.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.softwaresystemhealth.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.softwaresystemhealth.monitor}*.class"/>
+			</fileset>
+		</jar>			
 
 		<chmod perm="755">
 			<fileset dir="${basedir}/${dist.dir.name}/config"/>
