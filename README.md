@@ -192,6 +192,7 @@ A restart of the `solgeneos` service will then activate the new monitors.
 1. Merge/replace the contents of the repo with the `solgeneossample` directory contents  
     `cp -r solace-custom-monitor-solgeneos/config solgeneossample/`  
     `cp -r solace-custom-monitor-solgeneos/src solgeneossample/`  
+    `cp solace-custom-monitor-solgeneos/build* solgeneossample/`  
 1. Copy `httpclient` library supplied with `solgeneossample` to `bundledLib` directory  
     `cp solgeneossample/lib/compileLib/httpclient-*.jar solgeneossample/lib/bundledLib/`  
 1. Install Ant and 1.8 JDK if required and set JAVA_HOME  
@@ -208,7 +209,7 @@ A restart of the `solgeneos` service will then activate the new monitors.
     - the contents of `_antDist/lib` should be copied to `/usr/sw/solgeneos/monitors`
     - the contents of `_antDist/config` should be copied to `/usr/sw/solgeneos/config`
 1. On the dev broker restart the SolGeneos agent to activate new monitors  
-    `/bin/systemctl restart solgeneos`
+    `/usr/sw/solgeneos/currentload/bin/serviceScript.sh restart`
 
 ### Additional steps for building the 'advanced' monitors
 
@@ -226,8 +227,10 @@ A restart of the `solgeneos` service will then activate the new monitors.
     If copying manually:  
     - the contents of `_antDist/lib` should be copied to `/usr/sw/solgeneos/monitors`
     - the contents of `_antDist/config/advanced` should be copied to `/usr/sw/solgeneos/config`
+
+1. Edit the file `config/_user_MessagingTestMonitor.properties` to provide configuration for connecting to the broker for messaging tests.
 1. On the dev broker restart the SolGeneos agent to activate new monitors  
-    `/bin/systemctl restart solgeneos`
+    `/usr/sw/solgeneos/currentload/bin/serviceScript.sh restart`
     
     
 ## Contributing
