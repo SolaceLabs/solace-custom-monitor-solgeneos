@@ -36,7 +36,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.1";
+	static final public String MONITOR_VERSION = "1.1.1";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_VPN_DETAILS_REQUEST = 
@@ -79,7 +79,7 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
     // The elements of interest/exclusion within the VPN Details SEMP response processing:
     static final private String VPN_DETAILS_RESPONSE_ELEMENT_NAME_ROWS = "vpn";
     static final private  List<String> VPN_DETAILS_RESPONSE_COLUMNS = 
-    		Arrays.asList("name", "local-status",
+    		Arrays.asList("name", "locally-configured", "local-status", 
     				"total-unique-subscriptions", "max-subscriptions", 
     				"connections-service-smf", "max-connections-service-smf");
     static final private  List<String> VPN_DETAILS_RESPONSE_ELEMENT_NAMES_IGNORE = Arrays.asList("authentication", "semp-over-message-bus-configuration", "event-configuration", "certificate-revocation-check-stats");
@@ -110,6 +110,8 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
     
     // What is the desired order of columns?
     private List<Integer> desiredColumnOrder;
+    
+    private Integer localConfigurationStatusColumnID;	// Save this to prevent lookup on each sample
     
     // Override the column names to more human friendly
     static final private List<String> VPN_LIMITS_DATAVIEW_COLUMN_NAMES = 
@@ -243,7 +245,7 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 	private void setDesiredColumnOrder (List<String> currentColumnNames) {
 	    
 		desiredColumnOrder = Arrays.asList(
-			currentColumnNames.indexOf("name"), currentColumnNames.indexOf("local-status"), 
+			currentColumnNames.indexOf("name"), currentColumnNames.indexOf("local-status"),  
     		currentColumnNames.indexOf("total-unique-subscriptions"), currentColumnNames.indexOf("max-subscriptions"),
     		currentColumnNames.indexOf("connections-service-smf"), currentColumnNames.indexOf("max-connections-service-smf"),
     		
@@ -333,6 +335,9 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 			
 			// Then use this merged columns information to set the final display order
 			this.setDesiredColumnOrder(currentColumnNames);
+			
+			// Save the ID for the local-configuration column too
+			localConfigurationStatusColumnID = currentColumnNames.indexOf("locally-configured");
 		}
 		
 		// Have the broker limits been successfully initialized? Expected to be done in onPostInitialize() but double check before using it
@@ -349,14 +354,29 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 			}
 		}
 		
-		// Merge the two responses, keyed on the vpn-name, into a combined table
-		HashMap<String, ArrayList<String>> vpnData = multiRecordParserVpn.getData();
-		HashMap<String, ArrayList<String>> spoolData = multiRecordParserSpool.getData();		
-		vpnLimitsTableContent = new Vector<Object>();
-		
+		// First remove VPN entries that are 'locally-configured=false', they are not full VPN entries, but discovered from the Multi-Node Routing Network
+		// Will iterate the initial 'dirty' VPN data and filter rows to create the 'clean' VPN data.
+		HashMap<String, ArrayList<String>> vpnData = new LinkedHashMap<String, ArrayList<String>>();
+		HashMap<String, ArrayList<String>> vpnDataDirty;
 		ArrayList<String> tableRowVpn ;
-		ArrayList<String> tableRowSpool;
+		String localConfigurationStatus;
 		
+		vpnDataDirty = multiRecordParserVpn.getData();
+
+		for (Map.Entry<String, ArrayList<String>> entry : vpnDataDirty.entrySet()){			
+			tableRowVpn = entry.getValue();
+			
+			localConfigurationStatus = tableRowVpn.get(localConfigurationStatusColumnID);
+			if (localConfigurationStatus.equalsIgnoreCase("true")) {
+				vpnData.put(entry.getKey(), tableRowVpn);
+			}
+		}
+		
+		// Now merge the two responses, keyed on the vpn-name, into a combined table
+		HashMap<String, ArrayList<String>> spoolData = multiRecordParserSpool.getData();		
+		vpnLimitsTableContent = new Vector<Object>();				
+		ArrayList<String> tableRowSpool;
+
 		for (Map.Entry<String, ArrayList<String>> entry : vpnData.entrySet()){			
 			tableRowVpn = entry.getValue();
 			tableRowSpool = spoolData.get(entry.getKey());
@@ -370,7 +390,8 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 			vpnLimitsTableContent.add(tableRowVpn);
 		}	
 		
-		// Reorder the merged table into the column order we want
+		// Reorder the merged table into the column order we want. 
+		// (Will also drop any such as 'locally-configured' that are not needed in the final output.)
 		tempVpnLimitsTableContent = new Vector<Object>();
 		
 		// Iterate to each row in the table contents
@@ -388,7 +409,7 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 		
 		vpnLimitsTableContent = tempVpnLimitsTableContent;
 		
-		// From the table remove VPNs that are not Up (i.e. Shutdown/disabled)
+		// From the table remove VPNs that are Disabled as not participating in limit usage or allocation
 		// Also remove the system VPNs beginning with # where they are auto configured and cannot be edited anyway
 		// While here, add a new calculated column too on utilisation score...
 		
@@ -398,9 +419,7 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 			String tempVpnName = tempTableRow.get(VPN_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Message VPN"));
 			String tempVpnStatus = tempTableRow.get(VPN_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Status"));
 			
-			
-			
-			if (tempVpnName.startsWith("#") || !tempVpnStatus.equalsIgnoreCase("Up")) {
+			if (tempVpnName.startsWith("#") || tempVpnStatus.equalsIgnoreCase("Disabled")) {
 				itr.remove();
 			}
 			else

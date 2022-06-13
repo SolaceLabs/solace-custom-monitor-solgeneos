@@ -44,7 +44,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.3";
+	static final public String MONITOR_VERSION = "1.3.1";
 	
 	// The SEMP query to execute:
     static final public String SHOW_VPN_RATES_REQUEST = 
@@ -66,14 +66,15 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     				"client-data-bytes-received", "client-data-bytes-sent", "client-persistent-bytes-received", "client-persistent-bytes-sent", 
     				"client-non-persistent-bytes-received", "client-non-persistent-bytes-sent", "client-direct-bytes-received", "client-direct-bytes-sent",
     				"current-ingress-rate-per-second", "current-egress-rate-per-second", "current-ingress-byte-rate-per-second", "current-egress-byte-rate-per-second",
-    				"average-ingress-rate-per-minute", "average-egress-rate-per-minute", "average-ingress-byte-rate-per-minute", "average-egress-byte-rate-per-minute");
+    				"average-ingress-rate-per-minute", "average-egress-rate-per-minute", "average-ingress-byte-rate-per-minute", "average-egress-byte-rate-per-minute",
+    				"locally-configured");
     
     static final private  List<String> RESPONSE_ELEMENT_NAMES_IGNORE = Arrays.asList("authentication", "ingress-discards", "egress-discards", "certificate-revocation-check-stats");
      	
     // What should be the formatting style?
     static final private String FLOAT_FORMAT_STYLE = "%.2f";	// 2 decimal places
     		
-    // What is the desired order of columns?
+    // What is the desired order of columns? (Also serves to drop fields not needed in final output.)
     static final private List<Integer> DESIRED_COLUMN_ORDER = Arrays.asList(
     		RESPONSE_COLUMNS.indexOf("name"), 
     		RESPONSE_COLUMNS.indexOf("current-ingress-rate-per-second"), RESPONSE_COLUMNS.indexOf("current-egress-rate-per-second"),
@@ -86,12 +87,11 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     		
     		RESPONSE_COLUMNS.indexOf("client-data-bytes-received"), RESPONSE_COLUMNS.indexOf("client-data-bytes-sent"), RESPONSE_COLUMNS.indexOf("client-persistent-bytes-received"), RESPONSE_COLUMNS.indexOf("client-persistent-bytes-sent"),
     		RESPONSE_COLUMNS.indexOf("client-non-persistent-bytes-received"), RESPONSE_COLUMNS.indexOf("client-non-persistent-bytes-sent"), RESPONSE_COLUMNS.indexOf("client-direct-bytes-received"), RESPONSE_COLUMNS.indexOf("client-direct-bytes-sent")
-    		
     		);
     
     // Override the column names to more human friendly
     static final private List<String> COLUMN_NAME_OVERRIDE = 
-    		Arrays.asList("Message VPN",
+    		Arrays.asList("Message VPN", 
     				"Current Msg Rate", "Average Msg Rate", "Current Byte Rate", "Average Byte Rate", 	// These will be computed (sum ingress and egress) and added as columns
     				
     				"Current Ingress Msg Rate", "Current Egress Msg Rate", "Current Ingress Byte Rate", "Current Egress Byte Rate", 
@@ -99,7 +99,6 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     				
     				"Data Msgs Received", "Data Msgs Sent", "Data Msgs Received (Persistent)", "Data Msgs Sent (Persistent)", "Data Msgs Received (Non-Persistent)", "Data Msgs Sent (Non-Persistent)", "Data Msgs Received (Direct)", "Data Msgs Sent (Direct)",
     				"Data Bytes Received", "Data Bytes Sent", "Data Bytes Received (Persistent)", "Data Bytes Sent (Persistent)", "Data Bytes Received (Non-Persistent)", "Data Bytes Sent (Non-Persistent)", "Data Bytes Received (Direct)", "Data Bytes Sent (Direct)"
-    				
     				);
     
     static final private List<String> HWM_DATAVIEW_COLUMN_NAMES = 
@@ -145,6 +144,7 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     private int maxRows = 200;
 
     private LocalDateTime sampleTime;
+    private Integer localConfigurationStatusColumnID;	// Save this to prevent lookup on each sample
 
     
     
@@ -410,8 +410,34 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		
 		
 		// Will take what is received as the table contents and then do further processing and adjusting... 
-		receivedTableContent = multiRecordParser.getTableContent();		
-		// Firstly reorder data into the column order we want versus what came from the parser
+		receivedTableContent = multiRecordParser.getTableContent();
+		
+		
+		// First remove VPN entries that are 'locally-configured=false', they are not full VPN entries, but discovered from the Multi-Node Routing Network
+		// Will iterate the initial 'dirty' VPN data and filter rows to create the 'clean' VPN data. 
+		
+		ArrayList<String> tableRowVpn ;
+		String localConfigurationStatus;
+		tempTableContent = new Vector<Object>();
+		
+		if (localConfigurationStatusColumnID == null) {
+			List<String> currentColumnNames = multiRecordParser.getColumnNames();
+			localConfigurationStatusColumnID = currentColumnNames.indexOf("locally-configured");
+		}
+		
+		for (int index = 0; index < receivedTableContent.size(); index++) {
+			
+			tableRowVpn = (ArrayList<String>) receivedTableContent.get(index);
+			localConfigurationStatus = tableRowVpn.get(localConfigurationStatusColumnID);
+			
+			if (localConfigurationStatus.equalsIgnoreCase("true")) {
+				tempTableContent.add(tableRowVpn);
+			}
+		}  
+		
+		receivedTableContent = tempTableContent;
+		
+		// Now reorder data into the column order we want versus what came from the parser
 		
 		tempTableContent = new Vector<Object>();
 		// Iterate to each row in the table contents
@@ -441,21 +467,21 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 			
 			// NOTE: Until this column addition is done, the index as received from COLUMN_NAME_OVERRIDE is off by the number of columns to add (COMPUTED_COLUMN_COUNT).
 			
-			int ingressCurrentMsgRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Ingress Msg Rate") - COMPUTED_COLUMN_COUNT ));
-			int egressCurrentMsgRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Egress Msg Rate") - COMPUTED_COLUMN_COUNT));
-			computedTableColumns.add(Integer.toString(ingressCurrentMsgRate + egressCurrentMsgRate) );
+			long ingressCurrentMsgRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Ingress Msg Rate") - COMPUTED_COLUMN_COUNT ));
+			long egressCurrentMsgRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Egress Msg Rate") - COMPUTED_COLUMN_COUNT));
+			computedTableColumns.add(Long.toString(ingressCurrentMsgRate + egressCurrentMsgRate) );
 			
-			int ingressAverageMsgRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Ingress Msg Rate") - COMPUTED_COLUMN_COUNT));
-			int egressAverageMsgRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Egress Msg Rate") - COMPUTED_COLUMN_COUNT));
-			computedTableColumns.add(Integer.toString(ingressAverageMsgRate + egressAverageMsgRate) );
+			long ingressAverageMsgRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Ingress Msg Rate") - COMPUTED_COLUMN_COUNT));
+			long egressAverageMsgRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Egress Msg Rate") - COMPUTED_COLUMN_COUNT));
+			computedTableColumns.add(Long.toString(ingressAverageMsgRate + egressAverageMsgRate) );
 			
-			int ingressCurrentByteRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Ingress Byte Rate") - COMPUTED_COLUMN_COUNT));
-			int egressCurrentByteRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Egress Byte Rate") - COMPUTED_COLUMN_COUNT));
-			computedTableColumns.add(Integer.toString(ingressCurrentByteRate + egressCurrentByteRate) );
+			long ingressCurrentByteRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Ingress Byte Rate") - COMPUTED_COLUMN_COUNT));
+			long egressCurrentByteRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Current Egress Byte Rate") - COMPUTED_COLUMN_COUNT));
+			computedTableColumns.add(Long.toString(ingressCurrentByteRate + egressCurrentByteRate) );
 			
-			int ingressAverageByteRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Ingress Byte Rate") - COMPUTED_COLUMN_COUNT));
-			int egressAverageByteRate = Integer.parseInt(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Egress Byte Rate") - COMPUTED_COLUMN_COUNT));
-			computedTableColumns.add(Integer.toString(ingressAverageByteRate + egressAverageByteRate) );
+			long ingressAverageByteRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Ingress Byte Rate") - COMPUTED_COLUMN_COUNT));
+			long egressAverageByteRate = Long.parseLong(tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Average Egress Byte Rate") - COMPUTED_COLUMN_COUNT));
+			computedTableColumns.add(Long.toString(ingressAverageByteRate + egressAverageByteRate) );
 
 			tableRow.addAll(1, computedTableColumns);		// 4 new columns after the vpn name column
 			tempTableContent.add(tableRow);
