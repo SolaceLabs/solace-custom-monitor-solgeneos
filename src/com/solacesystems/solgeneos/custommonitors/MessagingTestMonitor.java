@@ -18,7 +18,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessagingTestMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0";
+	static final public String MONITOR_VERSION = "1.0.1";
 	
 	static final private List<String> DATAVIEW_COLUMN_NAMES = 
     		Arrays.asList("Destination", "Publish Status", "Subscribe Status", "RTT Latency (ms)");
@@ -109,6 +109,9 @@ public class MessagingTestMonitor extends BaseMonitor implements MonitorConstant
 				if (monitorPropsConfig.getProperties().get("testQueue") != null) {
 					testQueue = monitorPropsConfig.getProperties().get("testQueue").toString();
 				}
+				else {
+					getLogger().info("No testQueue property supplied, will not test queue messaging.");
+				}
 				
 				this.monitorStatusMessage = "OK";
 				this.monitorConfigReady = true;
@@ -186,29 +189,33 @@ public class MessagingTestMonitor extends BaseMonitor implements MonitorConstant
 				}
 				tableContent.add(tableRow);
 				
-				// Do Queue Tests
-				tableRow = new ArrayList<String>();
-				tableRow.add("queue:" + testQueue);
+				// Do Queue Tests only if queue was supplied
+				if (testQueue != null) {
+					tableRow = new ArrayList<String>();
+					tableRow.add("queue:" + testQueue);
+					
+					messagingTester.queueSubscribe();
+					messagingTester.queuePublish();
+					
+					if (messagingTester.isQueuePublished()) {
+						tableRow.add("PASS");
+					}
+					else {
+						tableRow.add("FAIL: " + messagingTester.getQueuePublishedStatus());
+					}
+					
+					if (messagingTester.isQueueSubscribed()) {
+						tableRow.add("PASS");
+						tableRow.add(messagingTester.getQueueLatency().toString());
+					}
+					else {
+						tableRow.add("FAIL: " + messagingTester.getQueueSubscribedStatus());
+						tableRow.add("");
+					}
+					tableContent.add(tableRow);
+				}
+
 				
-				messagingTester.queueSubscribe();
-				messagingTester.queuePublish();
-				
-				if (messagingTester.isQueuePublished()) {
-					tableRow.add("PASS");
-				}
-				else {
-					tableRow.add("FAIL: " + messagingTester.getQueuePublishedStatus());
-				}
-				
-				if (messagingTester.isQueueSubscribed()) {
-					tableRow.add("PASS");
-					tableRow.add(messagingTester.getQueueLatency().toString());
-				}
-				else {
-					tableRow.add("FAIL: " + messagingTester.getQueueSubscribedStatus());
-					tableRow.add("");
-				}
-				tableContent.add(tableRow);
 			}
 			else
 			{
