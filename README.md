@@ -32,6 +32,7 @@ No.  | Name | Function |
 4 | [MessageRates Monitor](#4-messagerates-monitor) | New monitor to display message and byte rate activity as well as identify top-talkers and track high water marks (HWMs) |
 5 | [MessageVPNLimits Monitor](#5-messagevpnlimits-monitor) | New monitor to clearly display 'current usage vs. max limit' of various capacity-related resources at a message-vpn level |
 6 | [BrokerLimits Monitor](#6-brokerlimits-monitor) | New monitor to clearly display 'current allocated vs. broker hard limit' of various capacity related resources |
+7 | [ClientProfileLimits Monitor](#7-clientprofilelimits-monitor) | New monitor to clearly display 'current usage vs. max limit' of various capacity-related resources at a client profile level |
 8 | [ClientsTopPublishers Monitor](#8-clientstoppublishers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
 9 | [ClientsTopSubscribers Monitor](#9-clientstopsubscribers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
 10 | [ClientsSlowSubscribers Monitor](#10-clientsslowsubscribers-monitor) | New monitor to show all clients the broker has determined to be slow subscribers |
