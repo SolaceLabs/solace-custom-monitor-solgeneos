@@ -35,7 +35,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0";
+	static final public String MONITOR_VERSION = "1.0.1";
 	
 	// The SEMP query to execute:
     static final public String SHOW_USERS_REQUEST = 
@@ -113,6 +113,10 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
     // What is the configured name of the dataview?
     private String dataViewName = "";
     private String defaultDataViewKey = "";
+    
+    // Track whether the Active/Standby Role has changed, if so, dataview needs a reset. Unset: -1, True: 1, False: 0.
+    int isStandbyBrokerBefore = -1;
+    int isStandbyBrokerNow = -1;
     
     // When sorting the table rows before limiting to maxrows, how to prioritise the top of the cut?
     // This comparator is used to sort the table so the highest spool utilisation percentage against the quota is at the top.
@@ -274,7 +278,7 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
 		brokenTableContent.addAll(
 				receivedTableContent
 				.stream()
-				.filter( tableRow -> ((ArrayList<String>)tableRow).size() < RESPONSE_COLUMNS.size())
+				.filter( tableRow -> ((ArrayList<String>)tableRow).size() == (RESPONSE_COLUMNS.size() - RESPONSE_PAD_COLUMN_NUMBERS.size()))
 				.collect(Collectors.toCollection(Vector<Object>::new))
 			);
 		
@@ -287,6 +291,13 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
 
 		// Merge it all together now...
 		goodTableContent.addAll(brokenTableContent);
+		
+	    // If connected to the broker that is in Active-Standby Role of 'Standby', several other columns are missing in the response. e.g. bind-count.
+	    // This situation can be detected if the received table content was non-zero, yet the final 'good' table content is empty.
+		// Create a message to explain this in the dataview, instructing the user to view the broker in the 'Active' role instead.
+		
+		isStandbyBrokerNow = (receivedTableContent.size() > 0 && goodTableContent.size() == 0) ? 1 : 0;
+		isStandbyBrokerBefore = (isStandbyBrokerBefore == -1) ? isStandbyBrokerNow : isStandbyBrokerBefore;
 		
 		// Reset any previously saved table state
 		tablesPerView = new HashMap<String, Vector<Object>>();		
@@ -439,12 +450,28 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
 				// Table content all complete now for publishing. Just add the column names too.
 				reorderedTableContent.add(0, this.COLUMN_NAME_OVERRIDE);	// No longer as received from parser in receivedColumnNames
 				tablesPerView.put(viewKey, reorderedTableContent);
-				headlinesPerView.put(viewKey, headlines);		
+				headlinesPerView.put(viewKey, headlines);	
+				
 			}
 			else
 			{
-				// There is no content for this view, need to do something about it...
-				// Will detect the same and delete it later.
+				// There is no content for this view, either no endpoints in the VPN, or its a Standby role broker
+				// If Standby broker, add a message to signal this clearly
+				if (isStandbyBrokerNow == 1) {
+					Vector<Object> messageTableContent = new Vector<Object>();
+					ArrayList<String> tableRow; 
+					
+					tableRow = new ArrayList<String>();
+					tableRow.add("Message");
+					messageTableContent.add(tableRow);
+					
+					tableRow = new ArrayList<String>();
+					tableRow.add("This broker is in the 'Standby' role. View the 'Active' broker for details.");
+					messageTableContent.add(tableRow);
+					
+					tablesPerView.put(viewKey, messageTableContent);
+					headlinesPerView.put(viewKey, headlines);
+				}
 			}
 			
 		}
@@ -460,6 +487,13 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
     				
     				// Check if data available for the view. If none, then clear it and plan to delete it.
     				if (tablesPerView.containsKey(view.getName())) {
+    					
+    					// If a role switch has happened, can end up with stale headlines. 
+    					// Also gateway complains of the column name changes. So reset the view.
+    					if (isStandbyBrokerNow != isStandbyBrokerBefore) {
+        					view.setReset(true);
+        					isStandbyBrokerBefore = isStandbyBrokerNow;
+    					}
     					view.setHeadlines(headlinesPerView.get(view.getName()));
         				view.setTableContent(tablesPerView.get(view.getName()));
     				}
