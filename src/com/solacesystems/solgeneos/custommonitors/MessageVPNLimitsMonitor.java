@@ -191,10 +191,7 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 		globalHeadlines.put("Custom Monitor", this.getName() + " v" + MONITOR_VERSION);
 		globalHeadlines.put("Sampling Interval (secs)", this.getSamplingRate());		
 
-		// (3) Are there properties specific to this monitor in its config file?
-		// This monitor can be operated in two modes: (1) single view, or (2) multi view.
-		// In single view, all the queues are listed in the same dataview. In multi view mode, queues are reported in per-VPN dataviews
-		
+		// (3) Are there properties specific to this monitor in its config file?		
 		UserPropertiesConfig monitorPropsConfig = SolGeneosAgent.onlyInstance.
 				getUserPropertiesConfig(MONITOR_PROPERTIES_FILE_NAME_PREFIX + this.getName() +MONITOR_PROPERTIES_FILE_NAME_SUFFIX);
 		// If the file exists and its not empty, add each property as a headline:
