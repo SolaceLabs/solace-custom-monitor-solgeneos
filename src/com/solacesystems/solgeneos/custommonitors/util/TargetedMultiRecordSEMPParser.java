@@ -1,6 +1,7 @@
 package com.solacesystems.solgeneos.custommonitors.util;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Vector;
 
@@ -10,7 +11,7 @@ import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 
 /**
- * This class parses a multi-record SEMP response to extract the records under a given element name name and return a table vector object.
+ * This class parses a multi-record SEMP response to extract the records under a given element name and return a table vector object.
  */
 public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	
@@ -23,9 +24,11 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	public final String SEMP_NAME_TAG = "name";
 	public final String ROW_UID_NAME = "RowUID";
 	public final String ROW_UID_DELIM = "?";
+		
+	private ArrayList<String> columnNames = new ArrayList<String>();
+	private ArrayList<String> columnNamesTemp = new ArrayList<String>();
 	
-	
-	private List<String> columnNames = new ArrayList<String>();
+	private ArrayList<String> columnNamesLevel2 = new ArrayList<String>();
 	
 	// What tag is the start of the actual data rows? (Each instance of this tag can start populating a row object)
 	private String rowsElementName = "";
@@ -33,6 +36,13 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	private List<String> columnElementNames;
 	// What is the name of the tag containing the sub-elements to skip?
 	private List<String> ignoreElementNames;
+
+	// To support one nested level more:
+	// What tag is the start of the actual data rows? (Each instance of this tag can start populating a row object)
+	private String rowsElementNameLevel2 = "";
+	// What is the name of the tag containing the column names of interest?
+	private List<String> columnElementNamesLevel2;
+	private boolean parseLevel2 = false;
 	
 	// Boolean to track where in the parsing things are
 	private boolean createRows = false;
@@ -40,6 +50,11 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	private boolean columnNamesKnown = false;
 	// Boolean to track if we're skipping a section
 	private boolean skipSection = false;
+	// Boolean to track if L2 parsing has started
+	private boolean createL2Rows = false;
+	// Boolean to track if column names determined already for Level 2
+	private boolean columnNamesKnownLevel2 = false;
+	// Boolean to track if we're skipping a section
 	
 	// There first set of levels in the SEMP response just echo back the command and can be ignored.
 	public final int MINIMUM_SEMP_DEPTH = 5;
@@ -50,14 +65,30 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	private StringBuilder sbElementContent = new StringBuilder();
 	
 	// Table content with the individual rows populated as the parsing progresses
-	private Vector<Object> tableContent;
+	private Vector<ArrayList<String>> tableContent;
 	private ArrayList<String> tableRow;
+	
+	// Table and rows for the nested level 2
+	private LinkedHashMap<String, Object> tableMapLevel2 = new LinkedHashMap<String, Object>();
+	private Vector<ArrayList<String>> tableContentLevel2;
+	private ArrayList<String> tableRowLevel2;
     
     public TargetedMultiRecordSEMPParser(String rowsElementName, List<String> columnElementNames, List<String> ignoreElementNames) throws ParserConfigurationException, SAXException {
     	super();
     	this.rowsElementName = rowsElementName;
     	this.columnElementNames = columnElementNames;
     	this.ignoreElementNames = ignoreElementNames;
+    }
+    
+    public TargetedMultiRecordSEMPParser(String rowsElementName, List<String> columnElementNames, List<String> ignoreElementNames, 
+    		String rowsElementNameLevel2, List<String> columnElementNamesLevel2) throws ParserConfigurationException, SAXException {
+    	super();
+    	this.rowsElementName = rowsElementName;
+    	this.columnElementNames = columnElementNames;
+    	this.ignoreElementNames = ignoreElementNames;
+    	this.rowsElementNameLevel2 = rowsElementNameLevel2;
+    	this.columnElementNamesLevel2 = columnElementNamesLevel2;
+    	this.parseLevel2 = true;
     }
     
 	@Override
@@ -77,7 +108,7 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
     	currentSEMPDepth = 0;
     	
     	// Reinitialise the tableContent object
-    	tableContent = new Vector<Object>();
+    	tableContent = new Vector<ArrayList<String>>();
 
 	}
 	
@@ -97,7 +128,9 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	    	// For this new element, the options are:
 	    	// (1) The first time getting to the parent section of interest, start building rows
 	    	// (2) If already in the parent section of interest, is it the start of the nested section?
-	    	// (3) If already in the nested elements section, this must be a column entry until we get to the next row
+	    	// (3a) If already in the nested elements section, this must be a column entry until we get to the next row
+    		// (3b) If already in the nested elements section, is it the element signalling level 2 parsing?
+    		//   (3b-1) If in the level 2 parsing, must be column entry until we get to the next row
 	    
 			// Is this now the element for the data rows?
 			if (qualifiedName.equalsIgnoreCase(rowsElementName))
@@ -109,6 +142,11 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 				// Clear the UID generation components
 				rowUniqueIdName = "";
 		    	rowUniqueIdVpn = "";
+		    	
+		    	// At the beginning of a new L1 record, reset the table to hold the L2 records here.
+		    	if (this.parseLevel2) {
+					tableContentLevel2 = new Vector<ArrayList<String>>();
+		    	}
 				
 			}	    	
 			// Is this now the element for the skip section rows?
@@ -121,17 +159,49 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 				// Then it's just elements that will make up the columns
 				if (createRows && !skipSection) 
 				{
-					// Now check if it is a column that we want?
-					if (columnElementNames.contains(qualifiedName))
-					{
-						// Then this new element start is a sub-element that should be treated as a new column entry
-						sbElementContent.delete(0, sbElementContent.length());
-						
-						// Save the name from this element to determine column names
-						if (!columnNamesKnown) {
-							columnNames.add(qualifiedName);
+					
+					// Check if the tag is the start of nested level 2?
+					if (parseLevel2 && rowsElementNameLevel2.contains(qualifiedName)) {
+						createL2Rows = true;
+						tableRowLevel2 = new ArrayList<String>();
+					}
+					
+					
+					// Test now to see if the columns are for the Level2 or not then act accordingly.
+					if (createL2Rows) {
+						// Now check if it is a column that we want from Level 2?
+						if (columnElementNamesLevel2.contains(qualifiedName))
+						{
+							// Then this new element start is a sub-element that should be treated as a new column entry
+							sbElementContent.delete(0, sbElementContent.length());
+							
+							// Save the name from this element to determine column names
+							System.out.println("Are L2 Column Names Known? " + columnNamesKnownLevel2);
+							if (!columnNamesKnownLevel2) {
+								System.out.println("Adding L2 Column Name: " + qualifiedName);
+								columnNamesLevel2.add(qualifiedName);
+							}
+						}	
+					}
+					else {
+					
+						// Now check if it is a column that we want from Level 1?
+						if (columnElementNames.contains(qualifiedName))
+						{
+							// Then this new element start is a sub-element that should be treated as a new column entry
+							sbElementContent.delete(0, sbElementContent.length());
+							
+							// Save the name from this element to determine column names
+							if (!columnNamesKnown) {
+								columnNames.add(qualifiedName);
+							}
+							else
+							{	// Need to collect column names each time as it can change between rows!
+								columnNamesTemp.add(qualifiedName);
+							}
 						}
 					}
+					
 				}
 			}
     	}
@@ -151,6 +221,8 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	    	// For this end element, the options are:
 	    	// (1) We are in the section of interest and got to the end of a row
 	    	// (2) We are in the section of interest and got to the end of a column
+    		// (3) We are in the nested level 2 section and got to the end of a row
+    		// (4) We are in the nested level 2 section and got to the end of a column
 	    	
 	    	if (qualifiedName.equalsIgnoreCase(rowsElementName))
 	    	{
@@ -169,6 +241,17 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	        		// Add the new RowUID as the first column name though
 	        		this.columnNames.add(0, ROW_UID_NAME);	
 	    		}
+	    		else {
+	    			// Another row fully processed, but more columns discovered this time?
+	    			this.columnNamesTemp.add(0, ROW_UID_NAME);
+	    			
+	    			if (columnNamesTemp.size() > columnNames.size()) {
+	    				columnNames = columnNamesTemp;
+	    			}
+	    			// Reset for next row
+	    			columnNamesTemp = new ArrayList<String>();
+	    			
+	    		}
 	    	} 
 	    	else if (ignoreElementNames.contains(qualifiedName))
 	    	{
@@ -177,23 +260,52 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	    	}
 	    	else if (createRows && !skipSection)
 	    	{	
-	    		
-				// Now check if it is a column that we want?
-				if (columnElementNames.contains(qualifiedName))
-				{
-					tableRow.add(sbElementContent.toString());	// String builder will be cleared the next time an element of interest starts
+	    		// Check if the tag is the end of nested level 2?
+				if (parseLevel2 && rowsElementNameLevel2.contains(qualifiedName)) {
+					// Do not treat any further elements found by startElement as being columns
+					createL2Rows = false;
+					
+					// Add the row built up so far to the table
+					tableContentLevel2.add(tableRowLevel2);
+					
+					// Add the sub-table to the map with RowUID as the key
+					tableMapLevel2.put(this.rowUniqueIdName.trim() + ROW_UID_DELIM + this.rowUniqueIdVpn.trim(), tableContentLevel2);
+					
+		    		if (!columnNamesKnownLevel2){
+		    			// One row fully processed so column names are known now. Add no more to it.
+		    			// But only if it came across a proper record with columns in it, not still empty...
+		        		if (!columnNamesLevel2.isEmpty()) {
+			    			columnNamesKnownLevel2 = true;		        			
+		        		}
+		    		}
+
 				}
-	    		
-	    		// Collect the components needed to build up the UID for the row. 
-				// Not in the above if-statement as theoretically could make up UID with other fields not used in final columns display. Like other natural unique IDs.
-	    		if (qualifiedName.equalsIgnoreCase(SEMP_NAME_TAG)) 
-	    		{
-	    			this.rowUniqueIdName = sbElementContent.toString();
-	    		}
-	    		if (qualifiedName.equalsIgnoreCase(SEMP_VPN_TAG)) 
-	    		{
-	    			this.rowUniqueIdVpn = sbElementContent.toString();
-	    		}
+				
+				if (createL2Rows) {
+					// Now check if it is a column that we want from Level 2?
+					if (columnElementNamesLevel2.contains(qualifiedName))
+					{
+						tableRowLevel2.add(sbElementContent.toString());	// String builder will be cleared the next time an element of interest starts
+					}		    		
+				}
+				else {
+					// Now check if it is a column that we want?
+					if (columnElementNames.contains(qualifiedName))
+					{
+						tableRow.add(sbElementContent.toString());	// String builder will be cleared the next time an element of interest starts
+					}
+		    		
+		    		// Collect the components needed to build up the UID for the row. 
+					// Not in the above if-statement as theoretically could make up UID with other fields not used in final columns display. Like other natural unique IDs.
+		    		if (qualifiedName.equalsIgnoreCase(SEMP_NAME_TAG)) 
+		    		{
+		    			this.rowUniqueIdName = sbElementContent.toString();
+		    		}
+		    		if (qualifiedName.equalsIgnoreCase(SEMP_VPN_TAG)) 
+		    		{
+		    			this.rowUniqueIdVpn = sbElementContent.toString();
+		    		}
+				}
 	    	}
     	}
     }
@@ -211,7 +323,7 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
     	}
     }
        
-	public Vector<Object> getTableContent() {
+	public Vector<ArrayList<String>> getTableContent() {
 		// Return the table without the column names. (To facilitate further processing of the table contents before publishing it.)
 		return tableContent;
 	}
@@ -227,5 +339,28 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 		Vector<Object> tempTableContent = (Vector<Object>) tableContent.clone();
 		tempTableContent.add(0, columnNames);
 		return tempTableContent;
+	}
+	
+	@SuppressWarnings("unchecked")
+	public Vector<ArrayList<String>> getTableContentLevel2(String rowUID) {
+		// Return the table without the column names. (To facilitate further processing of the table contents before publishing it.)
+		return (Vector<ArrayList<String>>) tableMapLevel2.get(rowUID);
+	}
+
+	public List<String> getColumnNamesLevel2() {
+		// Return the column names so it can added before publishing the content
+		return this.columnNamesLevel2;
+	}
+
+	public Vector<ArrayList<String>> getFullTableLevel2(String rowUID) {
+		// Return a combined table of column names and content
+		Vector<ArrayList<String>> tempTableContent = new Vector<ArrayList<String>>();
+		tempTableContent.add(columnNamesLevel2);
+		tempTableContent.addAll(getTableContentLevel2(rowUID));
+		return tempTableContent;
+	}
+	
+	public LinkedHashMap<String, Object> getTableMapLevel2 () {
+		return this.tableMapLevel2;
 	}
 }

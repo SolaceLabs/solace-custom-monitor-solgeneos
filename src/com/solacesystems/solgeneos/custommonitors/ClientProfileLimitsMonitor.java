@@ -37,7 +37,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0.0";
+	static final public String MONITOR_VERSION = "1.0.1";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_CP_DETAILS_REQUEST = 
@@ -80,7 +80,7 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
     private List<Integer> desiredColumnOrder;
     
     // Override the column names to more human friendly
-    static final private List<String> CP_LIMITS_DATAVIEW_COLUMN_NAMES = 
+    static final private ArrayList<String> CP_LIMITS_DATAVIEW_COLUMN_NAMES = new ArrayList<String>(
     		Arrays.asList("RowUID", "Client Profile", "Message VPN", 
     				"Subscriptions - Current", "Subscriptions - Max",
     				"Connections - Current", "Connections - Max", 
@@ -91,7 +91,7 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
     				"Transacted Sessions - Max",
     				"Number of Users",
     				"Utilisation Score"
-    				);
+    				));
     
     static final String[] RESOURCES = {"Subscriptions", "Connections", "Egress Flows", "Ingress Flows"};
     
@@ -257,11 +257,11 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 		}
 				
 		// Will take what is received as the table contents and then do further Java8 Streams based processing... 
-		Vector<Object> clientProfileData;
-		Vector<Object> clientProfileDataTemp;
+		Vector<ArrayList<String>> clientProfileData;
+		Vector<ArrayList<String>> clientProfileDataTemp;
 		ArrayList<String> tableRowClientProfile;
 		
-		Vector<Object> clientData;
+		Vector<ArrayList<String>> clientData;
 		ArrayList<String> tableRowClient;
 		
 		clientProfileData = multiRecordParserClientProfile.getTableContent();
@@ -269,7 +269,7 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 		List<String> clientDataColumnNames = multiRecordParserClientDetail.getColumnNames();
 		
 		// Reorder the merged table into the column order we want. 
-		clientProfileDataTemp = new Vector<Object>();
+		clientProfileDataTemp = new Vector<ArrayList<String>>();
 		
 		// Iterate to each row in the table contents
 		for (int index = 0; index < clientProfileData.size(); index++) {
@@ -278,7 +278,7 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 			ArrayList<String> tableRow = new ArrayList<String>();
 			
 			for (Integer columnNumber : this.desiredColumnOrder){
-				tableRow.add( ((ArrayList<String>)clientProfileData.get(index)).get(columnNumber));
+				tableRow.add( (clientProfileData.get(index)).get(columnNumber));
 			}
 			
 			// Add the empty columns for computed values later on
@@ -297,9 +297,9 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 		// Also remove the ones that have no configured username referencing it
 		// While iterating here, add the missing computed column values
 		
-		Iterator<Object> itr = clientProfileData.iterator();	
+		Iterator<ArrayList<String>> itr = clientProfileData.iterator();	
 		while (itr.hasNext()) {		
-			ArrayList<String> tempTableRow = (ArrayList<String>) itr.next();
+			ArrayList<String> tempTableRow = itr.next();
 			String cpName = tempTableRow.get(CP_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Client Profile"));
 			String vpnName = tempTableRow.get(CP_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Message VPN"));
 			int userCount = Integer.parseInt(tempTableRow.get(CP_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Number of Users")));
@@ -316,8 +316,8 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 					long nConnections = 
 							clientData
 							.stream()
-							.filter(tableRow -> vpnName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("message-vpn") )   ))
-							.filter(tableRow -> cpName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("profile") )   ))
+							.filter(tableRow -> vpnName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("message-vpn") )   ))
+							.filter(tableRow -> cpName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("profile") )   ))
 							.count();	
 					tempTableRow.set(CP_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Connections - Current"), Long.toString(nConnections));
 					
@@ -325,9 +325,9 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 					long nSubscriptions = 
 							clientData
 							.stream()
-							.filter(tableRow -> vpnName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("message-vpn") )   ))
-							.filter(tableRow -> cpName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("profile") )   ))
-							.map   (tableRow -> ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("num-subscriptions")  ) )	// Only that one column)
+							.filter(tableRow -> vpnName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("message-vpn") )   ))
+							.filter(tableRow -> cpName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("profile") )   ))
+							.map   (tableRow -> tableRow.get( clientDataColumnNames.indexOf("num-subscriptions")  ) )	// Only that one column)
 							.mapToLong(Long::parseLong)
 							.sum();	
 					tempTableRow.set(CP_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Subscriptions - Current"), Long.toString(nSubscriptions));
@@ -336,9 +336,9 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 					long nIngressFlows = 
 							clientData
 							.stream()
-							.filter(tableRow -> vpnName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("message-vpn") )   ))
-							.filter(tableRow -> cpName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("profile") )   ))
-							.map   (tableRow -> ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("total-ingress-flows")  ) )	// Only that one column)
+							.filter(tableRow -> vpnName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("message-vpn") )   ))
+							.filter(tableRow -> cpName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("profile") )   ))
+							.map   (tableRow -> tableRow.get( clientDataColumnNames.indexOf("total-ingress-flows")  ) )	// Only that one column)
 							.mapToLong(Long::parseLong)
 							.sum();	
 					tempTableRow.set(CP_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Ingress Flows - Current"), Long.toString(nIngressFlows));
@@ -347,9 +347,9 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 					long nEgressFlows = 
 							clientData
 							.stream()
-							.filter(tableRow -> vpnName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("message-vpn") )   ))
-							.filter(tableRow -> cpName.equalsIgnoreCase( ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("profile") )   ))
-							.map   (tableRow -> ((ArrayList<String>)tableRow).get( clientDataColumnNames.indexOf("total-egress-flows")  ) )	// Only that one column)
+							.filter(tableRow -> vpnName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("message-vpn") )   ))
+							.filter(tableRow -> cpName.equalsIgnoreCase( tableRow.get( clientDataColumnNames.indexOf("profile") )   ))
+							.map   (tableRow -> tableRow.get( clientDataColumnNames.indexOf("total-egress-flows")  ) )	// Only that one column)
 							.mapToLong(Long::parseLong)
 							.sum();	
 					tempTableRow.set(CP_LIMITS_DATAVIEW_COLUMN_NAMES.indexOf("Egress Flows - Current"), Long.toString(nEgressFlows));
@@ -382,14 +382,14 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
 		headlines.put("Last Sample Time", lastSampleTime);
 		
 		// Sort the list by the utilisation score. Then also limit to the max row count if exceeding it...
-		clientProfileDataTemp = new Vector<Object>();
+		clientProfileDataTemp = new Vector<ArrayList<String>>();
 		
 		clientProfileDataTemp.addAll(
 				clientProfileData
 				.stream()
 				.sorted(new UtilisationComparator())	
 				.limit(maxRows)				// Then cut the rows at max limit
-				.collect(Collectors.toCollection(Vector<Object>::new))
+				.collect(Collectors.toCollection(Vector<ArrayList<String>>::new))
 				);
 		clientProfileData = clientProfileDataTemp;
 
@@ -403,7 +403,10 @@ public class ClientProfileLimitsMonitor extends BaseMonitor implements MonitorCo
     			View view = viewMap.get(viewIt.next());	
     			if (view.isActive()) {
 					view.setHeadlines(headlines);
-    				view.setTableContent(clientProfileData);
+					// The .setTableContent() method forces a Vector of Object!
+					Vector<Object> submitTable = new Vector<Object>();
+					submitTable.addAll(clientProfileData);
+    				view.setTableContent(submitTable);
     			}
     		}
     	}
