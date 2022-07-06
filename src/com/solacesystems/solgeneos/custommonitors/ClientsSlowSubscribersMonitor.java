@@ -30,7 +30,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class ClientsSlowSubscribersMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0";
+	static final public String MONITOR_VERSION = "1.0.1";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_CLIENTS_REQUEST = 
@@ -53,9 +53,9 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
     static final private  List<String> RESPONSE_ELEMENT_NAMES_IGNORE = Arrays.asList("");
        
     // Override the column names to more human friendly
-    static final private List<String> DATAVIEW_COLUMN_NAMES = 
+    static final private ArrayList<String> DATAVIEW_COLUMN_NAMES = new ArrayList<String>(
     		Arrays.asList("RowUID", "Client ID", "Message VPN", "Host Address", "Username", "Process Owner", "Process Uptime", "Description", "Platform", 
-    				"Subscriptions", "Eliding Enabled?", "Elided Topics");
+    				"Subscriptions", "Eliding Enabled?", "Elided Topics"));
     
     // What is the desired order of columns?
     private List<Integer> desiredColumnOrder;	// To be set later once actual response is seen for the first time
@@ -64,8 +64,8 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
     private ResponseHandler<SampleHttpSEMPResponse> responseHandler;
     private TargetedMultiRecordSEMPParser multiRecordParser;
 
-    private Vector<Object> tableContent;
-    private Vector<Object> tempTableContent;
+    private Vector<ArrayList<String>> tableContent;
+    private Vector<ArrayList<String>> tempTableContent;
     private LinkedHashMap<String, Object> globalHeadlines = new LinkedHashMap<String, Object>();
         
     /**
@@ -184,7 +184,7 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
 		headlines.put("Number of Slow Subscribers", tableContent.size());
 
 		// Rearrange the table into the column order we want
-		tempTableContent = new Vector<Object>();
+		tempTableContent = new Vector<ArrayList<String>>();
 		
 		// Iterate to each row in the table contents
 		for (int index = 0; index < tableContent.size(); index++) {
@@ -193,7 +193,7 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
 			ArrayList<String> tableRow = new ArrayList<String>();
 			
 			for (Integer columnNumber : this.desiredColumnOrder){
-				tableRow.add( ((ArrayList<String>)tableContent.get(index)).get(columnNumber));
+				tableRow.add( (tableContent.get(index)).get(columnNumber));
 			}
 			// Add the newly created row to reorderedTableContent
 			tempTableContent.add(tableRow); 
@@ -209,7 +209,10 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
     			View view = viewMap.get(viewIt.next());	
     			if (view.isActive()) {
     				view.setHeadlines(headlines);
-    				view.setTableContent(tableContent);
+    				// The .setTableContent() method forces a Vector of Object!
+					Vector<Object> submitTable = new Vector<Object>();
+					submitTable.addAll(tableContent);
+    				view.setTableContent(submitTable);
     			}
     		}
     	}
