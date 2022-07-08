@@ -129,6 +129,15 @@
 				<include name="**/${filenamepattern.topicendpoints.monitor}*.class"/>
 			</fileset>
 		</jar>			
+		
+		<!-- MessageVPNBridgeRates Monitor Jar: -->
+		<echo>create ${jarname.vpnbridgerates.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.vpnbridgerates.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.vpnbridgerates.monitor}*.class"/>
+			</fileset>
+		</jar>
+		
 		<!-- MessageVPNLimits Monitor Jar: -->
 		<echo>create ${jarname.vpnlimits.monitor}.jar in ${dist.dir.name}</echo>
 		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.vpnlimits.monitor}.jar">
