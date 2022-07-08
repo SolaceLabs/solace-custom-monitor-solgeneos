@@ -1,6 +1,7 @@
 package com.solacesystems.solgeneos.custommonitors.util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Vector;
@@ -16,14 +17,16 @@ import org.xml.sax.SAXException;
 public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	
 	// Need to build up the row UID as the data returned from SEMP will not have a unique key
+	private String rowUID = "";
 	private String rowUniqueIdName = "";
 	private String rowUniqueIdVpn = "";
 	
-	// Some consts to find the relevant fields, name the column and the delimiter in its construction of two fields joined up.
-	public final String SEMP_VPN_TAG = "message-vpn";
-	public final String SEMP_NAME_TAG = "name";
-	public final String ROW_UID_NAME = "RowUID";
-	public final String ROW_UID_DELIM = "?";
+	// Some defaults to find the relevant fields, name the column and the delimiter in its construction of two fields joined up.
+	private String sempVpnTag = "message-vpn";
+	private String sempNameTag = "name";
+
+	private String rowUIDName = "RowUID";
+	private String rowUIDDelim = "?";
 		
 	private ArrayList<String> columnNames = new ArrayList<String>();
 	private ArrayList<String> columnNamesTemp = new ArrayList<String>();
@@ -72,6 +75,9 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	private LinkedHashMap<String, Object> tableMapLevel2 = new LinkedHashMap<String, Object>();
 	private Vector<ArrayList<String>> tableContentLevel2;
 	private ArrayList<String> tableRowLevel2;
+	
+	// Save the information in a hash map as another way to access the data. (Say if some merging of multiple queries is required.)
+	private HashMap<String, ArrayList<String>> responseData;
     
     public TargetedMultiRecordSEMPParser(String rowsElementName, List<String> columnElementNames, List<String> ignoreElementNames) throws ParserConfigurationException, SAXException {
     	super();
@@ -102,6 +108,7 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
     	// Clear the StringBuilder
     	sbElementContent.delete(0, sbElementContent.length());
     	
+    	rowUID = "";
     	rowUniqueIdName = "";
     	rowUniqueIdVpn = "";
     	
@@ -109,7 +116,9 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
     	
     	// Reinitialise the tableContent object
     	tableContent = new Vector<ArrayList<String>>();
-
+    	
+    	// Initialise the data hashmap
+    	responseData = new LinkedHashMap<String, ArrayList<String>>();
 	}
 	
 	// Useful SAX Parser Ref: https://www.journaldev.com/1198/java-sax-parser-example
@@ -176,9 +185,7 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 							sbElementContent.delete(0, sbElementContent.length());
 							
 							// Save the name from this element to determine column names
-							System.out.println("Are L2 Column Names Known? " + columnNamesKnownLevel2);
 							if (!columnNamesKnownLevel2) {
-								System.out.println("Adding L2 Column Name: " + qualifiedName);
 								columnNamesLevel2.add(qualifiedName);
 							}
 						}	
@@ -230,20 +237,34 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	    		createRows = false;
 	    		
 	    		// Add the UID to the start of the row...
-	    		tableRow.add(0, this.rowUniqueIdName.trim() + ROW_UID_DELIM + this.rowUniqueIdVpn.trim());
+	    		rowUID = this.rowUniqueIdName.trim() + rowUIDDelim + this.rowUniqueIdVpn.trim();
+	    		tableRow.add(0, rowUID);
 	    		
 	    		// Add the new row as it currently stands to the table
 	    		tableContent.add(tableRow);
+	    		
+	    		// Add the row to the HashMap version too, keyed by the VPN name
+	    		responseData.put(rowUID, tableRow);
+	    		
+		    	// At the end of a new L1 record. If L2 table was being created, stop now
+		    	if (parseLevel2) {
+		    		createL2Rows = false;
+	    			
+	    			// Add the sub-table to the map with RowUID as the key
+					tableMapLevel2.put(rowUID, tableContentLevel2);
+					// tableContentLevel2 will be reinitialised on next L2 start
+		    	}
+
 	    		
 	    		if (!columnNamesKnown){
 	    			// One row fully processed so column names are known now.
 	        		columnNamesKnown = true;
 	        		// Add the new RowUID as the first column name though
-	        		this.columnNames.add(0, ROW_UID_NAME);	
+	        		this.columnNames.add(0, rowUIDName);	
 	    		}
 	    		else {
 	    			// Another row fully processed, but more columns discovered this time?
-	    			this.columnNamesTemp.add(0, ROW_UID_NAME);
+	    			this.columnNamesTemp.add(0, rowUIDName);
 	    			
 	    			if (columnNamesTemp.size() > columnNames.size()) {
 	    				columnNames = columnNamesTemp;
@@ -267,9 +288,6 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 					
 					// Add the row built up so far to the table
 					tableContentLevel2.add(tableRowLevel2);
-					
-					// Add the sub-table to the map with RowUID as the key
-					tableMapLevel2.put(this.rowUniqueIdName.trim() + ROW_UID_DELIM + this.rowUniqueIdVpn.trim(), tableContentLevel2);
 					
 		    		if (!columnNamesKnownLevel2){
 		    			// One row fully processed so column names are known now. Add no more to it.
@@ -297,11 +315,11 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 		    		
 		    		// Collect the components needed to build up the UID for the row. 
 					// Not in the above if-statement as theoretically could make up UID with other fields not used in final columns display. Like other natural unique IDs.
-		    		if (qualifiedName.equalsIgnoreCase(SEMP_NAME_TAG)) 
+		    		if (qualifiedName.equalsIgnoreCase(sempNameTag)) 
 		    		{
 		    			this.rowUniqueIdName = sbElementContent.toString();
 		    		}
-		    		if (qualifiedName.equalsIgnoreCase(SEMP_VPN_TAG)) 
+		    		if (qualifiedName.equalsIgnoreCase(sempVpnTag)) 
 		    		{
 		    			this.rowUniqueIdVpn = sbElementContent.toString();
 		    		}
@@ -331,6 +349,11 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	public List<String> getColumnNames() {
 		// Return the column names so it can added before publishing the content
 		return this.columnNames;
+	}
+	
+	public HashMap<String, ArrayList<String>> getData() {
+		// Return the rows in a hash map keyed by the generated RowUID
+		return this.responseData;
 	}
 
 	public Vector<Object> getFullTable() {
@@ -362,5 +385,45 @@ public class TargetedMultiRecordSEMPParser extends SampleSEMPParser {
 	
 	public LinkedHashMap<String, Object> getTableMapLevel2 () {
 		return this.tableMapLevel2;
+	}
+	
+	public String getRowUniqueIdName() {
+		return rowUniqueIdName;
+	}
+
+	public void setRowUniqueIdName(String rowUniqueIdName) {
+		this.rowUniqueIdName = rowUniqueIdName;
+	}
+
+	public String getRowUniqueIdVpn() {
+		return rowUniqueIdVpn;
+	}
+
+	public void setRowUniqueIdVpn(String rowUniqueIdVpn) {
+		this.rowUniqueIdVpn = rowUniqueIdVpn;
+	}
+
+	public String getSempVpnTag() {
+		return sempVpnTag;
+	}
+
+	public void setSempVpnTag(String sempVpnTag) {
+		this.sempVpnTag = sempVpnTag;
+	}
+
+	public String getSempNameTag() {
+		return sempNameTag;
+	}
+
+	public void setSempNameTag(String sempNameTag) {
+		this.sempNameTag = sempNameTag;
+	}
+	
+	public String getRowUIDDelim() {
+		return rowUIDDelim;
+	}
+
+	public void setRowUIDDelim(String rowUIDDelim) {
+		this.rowUIDDelim = rowUIDDelim;
 	}
 }
