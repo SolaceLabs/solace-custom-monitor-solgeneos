@@ -514,11 +514,11 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
 					String lastSeenClientID = "";
 					String lastSeenConnectTime = "";
 				
+					rowUID = tableRow.get(COLUMN_NAME_OVERRIDE.indexOf("RowUID"));
+					tempL2ColumnNames = multiRecordParser.getColumnNamesLevel2();
+					tempTableContentClients = multiRecordParser.getTableContentLevel2(rowUID);
+					
 					if (!bindCount.equalsIgnoreCase("0")) {
-												
-						rowUID = tableRow.get(COLUMN_NAME_OVERRIDE.indexOf("RowUID"));
-						tempL2ColumnNames = multiRecordParser.getColumnNamesLevel2();
-						tempTableContentClients = multiRecordParser.getTableContentLevel2(rowUID);
 						
 						if (tempTableContentClients.size() > 0) {
 							

@@ -499,7 +499,7 @@ public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
 				tempTableContent = new Vector<ArrayList<String>>();
 				List<String> tempL2ColumnNames;
 				String rowUID;
-				
+					
 				for (int index = 0; index < goodTableContent.size(); index++) {
 					
 					// Build a new tableRow by adding to it with necessary annotations 
@@ -517,13 +517,14 @@ public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
 					String lastSeenClientID = "";
 					String lastSeenConnectTime = "";
 				
+					rowUID = tableRow.get(COLUMN_NAME_OVERRIDE.indexOf("RowUID"));
+					tempL2ColumnNames = multiRecordParser.getColumnNamesLevel2();
+					tempTableContentClients = multiRecordParser.getTableContentLevel2(rowUID);
+					
 					if (!bindCount.equalsIgnoreCase("0")) {
-						rowUID = tableRow.get(COLUMN_NAME_OVERRIDE.indexOf("RowUID"));
-						tempL2ColumnNames = multiRecordParser.getColumnNamesLevel2();
-						tempTableContentClients = multiRecordParser.getTableContentLevel2(rowUID);
 						
 						if (tempTableContentClients.size() > 0) {
-							
+						
 							// Which client to show in a single line available?
 							// If exclusive mode, show the one that is Active-Consumer
 							// If non-exclusive mode, show the lowest flow id?
@@ -550,10 +551,10 @@ public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
 											.stream()
 											.sorted(new FlowIDComparator())
 											.limit(1)
-											.collect(Collectors.toList()).get(0);
+											.collect(Collectors.toList()).get(0);								
 								}
 							}
-														
+							
 							clientID = tableRowClient.get(tempL2ColumnNames.indexOf("name"));
 							isActive = tableRowClient.get(tempL2ColumnNames.indexOf("is-active"));
 							windowSize = tableRowClient.get(tempL2ColumnNames.indexOf("window-size"));
@@ -561,7 +562,7 @@ public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
 							flowID = tableRowClient.get(tempL2ColumnNames.indexOf("flow-id"));
 							lastMsgIDDelivered = tableRowClient.get(tempL2ColumnNames.indexOf("last-msg-id-delivered"));
 						}
-					}
+					}					
 					tableRow.add(clientID);
 					tableRow.add(isActive);
 					tableRow.add(windowSize);
