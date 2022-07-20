@@ -33,7 +33,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0.0";
+	static final public String MONITOR_VERSION = "1.0.1";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_BRIDGES_REQUEST = 
@@ -50,7 +50,7 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
         "<rpc>" + 
         "	<show>" +
         "		<client>" +
-        "			<name>#bridge/local*</name>" +
+        "			<name>#bridge/*</name>" +
         "			<stats></stats>" +
         "			<detail></detail>" +
         "		</client>" +
@@ -61,7 +61,7 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
         "<rpc>" + 
         "	<show>" +
         "		<client>" +
-        "			<name>#bridge/local*</name>" +
+        "			<name>#bridge/*</name>" +
         "			<connections></connections>" +
         "			<wide></wide>" +
         "		</client>" +
@@ -227,7 +227,7 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 	}
 	
 	private void setDesiredColumnOrder (List<String> currentColumnNames, boolean isReducedColumns) {
-		
+				
 		if (isReducedColumns) {
 			desiredColumnOrder = Arrays.asList(
 					currentColumnNames.indexOf("RowUID"), currentColumnNames.indexOf("bridge-name"), currentColumnNames.indexOf("local-vpn-name"), currentColumnNames.indexOf("connected-remote-vpn-name"),
@@ -308,6 +308,8 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 		ArrayList<String> bridgeDetailsTempRow1;
 		ArrayList<String> bridgeDetailsTempRow2;
 		
+		boolean reducedDataColumns = true;
+		
 		// Get the SEMP responses:
 		submitSEMPQuery(SHOW_BRIDGES_REQUEST, multiRecordParserBridge);
 		submitSEMPQuery(SHOW_BRIDGES_STATS_REQUEST, multiRecordParserBridgeStats);
@@ -324,10 +326,9 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 		currentColumnNames.remove("client-name");
 		
 		// Was there any connection stats available even?
-		if (bridgeDetailsConnsColumnNames.isEmpty()) {
-			setDesiredColumnOrder(currentColumnNames, true);	// reduced columns to work off
-		}
-		else {
+		if (bridgeDetailsConnsColumnNames.size() > 1) {			// "RowUID" present as minimum if empty.
+			
+			reducedDataColumns = false;
 			// Then add the column names from the Conns details response after removing the RowUID column
 			List<String> tempColumnNames = new ArrayList<String>();
 			tempColumnNames.addAll(bridgeDetailsConnsColumnNames);
@@ -355,7 +356,12 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 			currentColumnNames.addAll(tempColumnNames);
 			
 			// Then use this merged columns information to set the final display order
-			setDesiredColumnOrder(currentColumnNames, false);	// not reduced columns set.
+			setDesiredColumnOrder(currentColumnNames, reducedDataColumns);	// not reduced columns set.			
+		}
+		else {
+			reducedDataColumns = true;
+			setDesiredColumnOrder(currentColumnNames, reducedDataColumns);	// reduced columns to work off
+
 		}
 				
 				
@@ -442,7 +448,7 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 		// Iterate to each row in the table contents
 		
 		vpnBridgesTableContentTemp = new Vector<ArrayList<String>>();
-		
+				
 		for (int index = 0; index < vpnBridgesTableContent.size(); index++) {
 			
 			// Build a new tableRow by adding to it in the right order 
@@ -473,7 +479,7 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 			ArrayList<String> tempTableRow = itr.next();
 			
 			// Only if there are values to convert...
-			if (!tempTableRow.get(COLUMN_NAME_OVERRIDE.indexOf("Current Msg Rate")).isEmpty()) {
+			if (!reducedDataColumns && !tempTableRow.get(COLUMN_NAME_OVERRIDE.indexOf("Current Msg Rate")).isEmpty()) {
 				for (String columnName : COLUMNS_IN_MBYTES) {
 					double bytes = Double.parseDouble(tempTableRow.get(COLUMN_NAME_OVERRIDE.indexOf(columnName)));
 					tempTableRow.set(COLUMN_NAME_OVERRIDE.indexOf(columnName), String.format(FLOAT_FORMAT_STYLE, (bytes / BYTE_TO_MBYTE)));
@@ -493,18 +499,38 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 				.filter(x -> x.equalsIgnoreCase("Enabled") ) 
 				.count() ;
 		
+		long nBridgesConfigured = 
+				vpnBridgesTableContent
+				.stream()
+				.map( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Admin State") ) )	
+				.filter(x -> !x.equalsIgnoreCase("-") ) 
+				.count() ;
+		
 		long nBridgesBidirectional = 
 				vpnBridgesTableContent
 				.stream()
-				.map( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Outbound State") ) )	
-				.filter(x -> x.equalsIgnoreCase("Ready") ) 
+				.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Inbound State") ).equalsIgnoreCase("Ready-InSync") )	
+				.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Outbound State") ).equalsIgnoreCase("Ready") )	
 				.count() ;
 		
-		long nBridgesUnidirectional = 
+		long nBridgesNotReady = 
 				vpnBridgesTableContent
 				.stream()
-				.map( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Inbound State") ) )	
-				.filter(x -> !x.equalsIgnoreCase("Shutdown") ) 
+				.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Inbound State") ).startsWith("NotReady-") )	
+				.count() ;
+		
+		long nBridgesInboundUnidirectional = 
+				vpnBridgesTableContent
+				.stream()
+				.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Inbound State") ).equalsIgnoreCase("Ready-InSync") )	
+				.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Outbound State") ).equalsIgnoreCase("NotApplicable") )	
+				.count() ;
+		
+		long nBridgesOutboundUnidirectional =
+				vpnBridgesTableContent
+				.stream()
+				.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Inbound State") ).equalsIgnoreCase("NotApplicable") )	
+				.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Outbound State") ).equalsIgnoreCase("Ready") )	
 				.count() ;
 		
 		long nBridgesActive = 
@@ -516,10 +542,12 @@ public class MessageVPNBridgeRatesMonitor extends BaseMonitor implements Monitor
 				.count() ;
 		
 		// (Geneos does not support long values.)
-		headlines.put("Number of configured bridges", vpnBridgesTableContent.size() );
+		headlines.put("Number of configured bridges", Long.toString(nBridgesConfigured)  );
 		headlines.put("Number of enabled bridges", Long.toString(nBridgesEnabled) );
 		headlines.put("Number of active bridges", Long.toString(nBridgesActive) );
-		headlines.put("Number of unidirectional bridges", Long.toString(nBridgesUnidirectional - nBridgesBidirectional) );
+		headlines.put("Number of bridges NotReady", Long.toString(nBridgesNotReady) );
+		headlines.put("Number of inbound unidirectional bridges", Long.toString(nBridgesInboundUnidirectional) );
+		headlines.put("Number of outbound unidirectional bridges", Long.toString(nBridgesOutboundUnidirectional) );
 		headlines.put("Number of bidirectional bridges", Long.toString(nBridgesBidirectional) );
 		
 		// Add the override column names
