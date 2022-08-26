@@ -2,9 +2,11 @@ package com.solacesystems.solgeneos.custommonitors;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
 import java.util.Vector;
@@ -30,10 +32,10 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class ClientsSlowSubscribersMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.0.1";
+	static final public String MONITOR_VERSION = "1.1.0";
 	
 	// The SEMP queries to execute:
-    static final public String SHOW_CLIENTS_REQUEST = 
+    static final public String SHOW_CLIENTS_REQUEST_DETAIL = 
         "<rpc>" + 
         "	<show>" +
         "		<client>" +
@@ -44,25 +46,57 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
         "	</show>" +
         "</rpc>";
 
+    static final public String SHOW_CLIENTS_REQUEST_STATS = 
+            "<rpc>" + 
+            "	<show>" +
+            "		<client>" +
+            "			<name>*</name>" +
+            "			<stats/>" +
+            "			<slow-subscriber/>" +
+            "		</client>" +
+            "	</show>" +
+            "</rpc>";
+    
     // The elements of interest/exclusion within the SEMP response processing:
     static final private String RESPONSE_ELEMENT_NAME_ROWS = "client";
-    static final private  List<String> RESPONSE_COLUMNS = 
-    		Arrays.asList("RowUID", "name", "message-vpn", "client-address", "num-subscriptions", "eliding-enabled", "eliding-topics", "uptime", "client-username", "user", "description", "platform");
+    static final private  List<String> RESPONSE_COLUMNS_DETAIL = 
+    		Arrays.asList("RowUID", "name", "message-vpn", 
+    				"client-address", "num-subscriptions", "eliding-enabled", "eliding-topics", "uptime", 
+    				"client-username", "profile", "user", "description", "platform");
+
+    static final private  List<String> RESPONSE_COLUMNS_STATS = 
+    		Arrays.asList("RowUID", "name", "message-vpn", 
+    				"client-data-messages-sent", "client-data-bytes-sent", 
+    				"current-egress-rate-per-second", "average-egress-rate-per-minute",
+    				"current-egress-byte-rate-per-second", "average-egress-byte-rate-per-minute",
+    				"total-egress-discards");
+
     // NOTE: "RowUID" is not expected in the SEMP response, but will be added by the parser. However adding it here allows this list to be used as an index where the column number can be searched by name
     
     static final private  List<String> RESPONSE_ELEMENT_NAMES_IGNORE = Arrays.asList("");
        
+    // What should be the formatting style?
+    static final private String FLOAT_FORMAT_STYLE = "%.3f";	// 3 decimal places. Wanted to add thousandth separator but Geneos fails to recognise it as numbers for rule purposes!
+
     // Override the column names to more human friendly
     static final private ArrayList<String> DATAVIEW_COLUMN_NAMES = new ArrayList<String>(
-    		Arrays.asList("RowUID", "Client ID", "Message VPN", "Host Address", "Username", "Process Owner", "Process Uptime", "Description", "Platform", 
-    				"Subscriptions", "Eliding Enabled?", "Elided Topics"));
+    		Arrays.asList("RowUID", "Client ID", "Message VPN", "Host Address", "Username", "Client Profile", "Process Owner", "Process Uptime", 
+    				"Description", "Platform", "Subscriptions", "Eliding Enabled?", "Elided Topics",
+    				"Current Egress Msg Rate", "Average Egress Msg Rate",
+    				"Current Egress MByte Rate", "Average Egress MByte Rate",
+    				"Total Msgs Sent", "Total MBytes Sent", "Total Egress Discards"));
     
+    static final private List<String> COLUMNS_IN_MBYTES = Arrays.asList("Current Egress MByte Rate", "Total MBytes Sent", "Average Egress MByte Rate");
+    
+    static final private int BYTE_TO_MBYTE = 1048576;
+
     // What is the desired order of columns?
     private List<Integer> desiredColumnOrder;	// To be set later once actual response is seen for the first time
     
     private DefaultHttpClient httpClient;
     private ResponseHandler<SampleHttpSEMPResponse> responseHandler;
-    private TargetedMultiRecordSEMPParser multiRecordParser;
+    private TargetedMultiRecordSEMPParser multiRecordParserDetail;
+    private TargetedMultiRecordSEMPParser multiRecordParserStats;
 
     private Vector<ArrayList<String>> tableContent;
     private Vector<ArrayList<String>> tempTableContent;
@@ -126,7 +160,9 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
         responseHandler = new SampleResponseHandler();
         
         // create SEMP parser with the name of the element that contains the records
-		multiRecordParser = new TargetedMultiRecordSEMPParser(RESPONSE_ELEMENT_NAME_ROWS, RESPONSE_COLUMNS, RESPONSE_ELEMENT_NAMES_IGNORE);
+		multiRecordParserDetail = new TargetedMultiRecordSEMPParser(RESPONSE_ELEMENT_NAME_ROWS, RESPONSE_COLUMNS_DETAIL, RESPONSE_ELEMENT_NAMES_IGNORE);
+		multiRecordParserStats  = new TargetedMultiRecordSEMPParser(RESPONSE_ELEMENT_NAME_ROWS, RESPONSE_COLUMNS_STATS, RESPONSE_ELEMENT_NAMES_IGNORE);
+
 	}
 	
 	// This is called once the actual returned order of columns from the SEMP response is known
@@ -134,9 +170,15 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
 	    
 		desiredColumnOrder = Arrays.asList(
 			currentColumnNames.indexOf("RowUID"), currentColumnNames.indexOf("name"), currentColumnNames.indexOf("message-vpn"),
-    		currentColumnNames.indexOf("client-address"), currentColumnNames.indexOf("client-username"), currentColumnNames.indexOf("user"),
-    		currentColumnNames.indexOf("uptime"), currentColumnNames.indexOf("description"), currentColumnNames.indexOf("platform"),
-    		currentColumnNames.indexOf("num-subscriptions"), currentColumnNames.indexOf("eliding-enabled"), currentColumnNames.indexOf("eliding-topics"));
+    		currentColumnNames.indexOf("client-address"), currentColumnNames.indexOf("client-username"), currentColumnNames.indexOf("profile"), 
+    		currentColumnNames.indexOf("user"), currentColumnNames.indexOf("uptime"),
+    		 currentColumnNames.indexOf("description"), currentColumnNames.indexOf("platform"),
+    		currentColumnNames.indexOf("num-subscriptions"), currentColumnNames.indexOf("eliding-enabled"), currentColumnNames.indexOf("eliding-topics"),
+    		currentColumnNames.indexOf("current-egress-rate-per-second"), currentColumnNames.indexOf("average-egress-rate-per-minute"), 
+    		currentColumnNames.indexOf("current-egress-byte-rate-per-second"), currentColumnNames.indexOf("average-egress-byte-rate-per-minute"), 
+    		currentColumnNames.indexOf("client-data-messages-sent"), currentColumnNames.indexOf("client-data-bytes-sent"), 
+    		currentColumnNames.indexOf("total-egress-discards")
+			);
 	}
 	
 	private void submitSEMPQuery (String sempQuery, SampleSEMPParser sempParser) throws Exception {
@@ -162,23 +204,66 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
 	 * @return The next monitor state which should be State.REPORTING_QUEUE.
 	 */
 
-	@SuppressWarnings({ "static-access", "unchecked" })
+	@SuppressWarnings({ "static-access" })
 	@Override
 	protected State onCollect() throws Exception {
 
 		TreeMap<String, View> viewMap = getViewMap();
 		LinkedHashMap<String, Object> headlines = new LinkedHashMap<String, Object>();
 		
-		submitSEMPQuery(this.SHOW_CLIENTS_REQUEST, multiRecordParser);
-		tableContent = multiRecordParser.getTableContent();
+		submitSEMPQuery(this.SHOW_CLIENTS_REQUEST_DETAIL, multiRecordParserDetail);
+		submitSEMPQuery(this.SHOW_CLIENTS_REQUEST_STATS, multiRecordParserStats);
+		
+		HashMap<String, ArrayList<String>> clientDetailsTableMap; 
+		HashMap<String, ArrayList<String>> clientStatsTableMap;
+		
+		ArrayList<String> clientDetailsTempRow1;
+		ArrayList<String> clientDetailsTempRow2;
+		
+		List<String> clientsColumnNamesDetail = multiRecordParserDetail.getColumnNames();
+		List<String> clientsColumnNamesStats  = multiRecordParserStats.getColumnNames();
 		
 		// Has the desired column order been determined yet? (Done on the first time responses and their columns came back.)
 		if (this.desiredColumnOrder == null) {
-			this.setDesiredColumnOrder(multiRecordParser.getColumnNames());
+			// First get the column names from the client details response then merge with columns from stats response
+			// Since will be modifying the column names as supplied, do it to a copy of the List, not the actual one.
+			List<String> tempColumnNamesDetail = new ArrayList<String>();
+			tempColumnNamesDetail.addAll(multiRecordParserDetail.getColumnNames());
+			List<String> tempColumnNamesStats  = new ArrayList<String>();
+			tempColumnNamesStats.addAll(multiRecordParserStats.getColumnNames());
+			
+			tempColumnNamesStats.remove("RowUID");
+			tempColumnNamesStats.remove("name");
+			tempColumnNamesStats.remove("message-vpn");
+			tempColumnNamesDetail.addAll(tempColumnNamesStats);
+			
+			// Then use this merged columns information to set the final display order
+			this.setDesiredColumnOrder(tempColumnNamesDetail);
 		}
 				
-		headlines.putAll(globalHeadlines);
+		// Merge the two results together to create the final table for publish...
 		
+		tableContent = new Vector<ArrayList<String>>();
+
+		clientDetailsTableMap = multiRecordParserDetail.getData();
+		clientStatsTableMap = multiRecordParserStats.getData();
+		
+		for (Map.Entry<String, ArrayList<String>> entry : clientDetailsTableMap.entrySet()){			
+			clientDetailsTempRow1 = entry.getValue();
+			clientDetailsTempRow2 = clientStatsTableMap.get(entry.getKey());
+			
+			// Remove the first column that is VPN name from second dataset
+			clientDetailsTempRow2.remove(clientsColumnNamesStats.indexOf("message-vpn"));
+			clientDetailsTempRow2.remove(clientsColumnNamesStats.indexOf("name"));
+			clientDetailsTempRow2.remove(clientsColumnNamesStats.indexOf("RowUID"));
+			
+			// Merge second dataset with first
+			clientDetailsTempRow1.addAll(clientDetailsTempRow2);
+			
+			tableContent.add(clientDetailsTempRow1);
+		}
+		
+		headlines.putAll(globalHeadlines);
 		String lastSampleTime = SolGeneosAgent.onlyInstance.getCurrentTimeString();
 		headlines.put("Last Sample Time", lastSampleTime);
 		headlines.put("Number of Slow Subscribers", tableContent.size());
@@ -195,11 +280,27 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
 			for (Integer columnNumber : this.desiredColumnOrder){
 				tableRow.add( (tableContent.get(index)).get(columnNumber));
 			}
-			// Add the newly created row to reorderedTableContent
+			// Add the newly created row to tempTableContent
 			tempTableContent.add(tableRow); 
-		}  
-		
+		} 
 		tableContent = tempTableContent;
+		
+		// NOTE: Columns re-ordered from this point onwards, lookup with DATAVIEW_COLUMN_NAMES.
+				
+		// Convert fields in bytes to MBytes
+		tempTableContent = new Vector<ArrayList<String>>();
+		Iterator<ArrayList<String>> itr = tableContent.iterator();	
+		
+		while (itr.hasNext()) {		
+			ArrayList<String> tempTableRow = itr.next();
+			for (String columnName : COLUMNS_IN_MBYTES) {
+				double bytes = Double.parseDouble(tempTableRow.get(DATAVIEW_COLUMN_NAMES.indexOf(columnName)));
+				tempTableRow.set(DATAVIEW_COLUMN_NAMES.indexOf(columnName), String.format(FLOAT_FORMAT_STYLE, (bytes / BYTE_TO_MBYTE)));
+			}	
+			tempTableContent.add(tempTableRow);
+		}  
+
+		tableContent = tempTableContent;		
 		tableContent.add(0, this.DATAVIEW_COLUMN_NAMES);			
 		
 		// Now ready to publish tables to the view map
