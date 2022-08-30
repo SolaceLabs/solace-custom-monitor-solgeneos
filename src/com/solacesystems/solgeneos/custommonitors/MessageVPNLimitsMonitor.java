@@ -36,7 +36,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.1.1";
+	static final public String MONITOR_VERSION = "1.1.2";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_VPN_DETAILS_REQUEST = 
@@ -254,6 +254,15 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
     		currentColumnNames.indexOf("current-egress-flows"), currentColumnNames.indexOf("maximum-egress-flows"),
     		currentColumnNames.indexOf("current-ingress-flows"), currentColumnNames.indexOf("maximum-ingress-flows")
 		);
+		
+		// Did any expected field above not get found in the SEMP response? Report error if so...
+		if (desiredColumnOrder.contains(-1)) {
+			getLogger().error(
+					"Not all expected fields were present in the SEMP response when setting the column order. " 
+					+ "Available columns: " + currentColumnNames.toString()
+					+ "Final ordering as set: " + desiredColumnOrder.toString()
+					);
+		}
 	}
 	
 	private void submitSEMPQuery (String sempQuery, SampleSEMPParser sempParser) throws Exception {
@@ -324,17 +333,21 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 		// Has the desired column order been determined yet? (Done on the first time responses and their columns came back.)
 		if (this.desiredColumnOrder == null) {
 			// First get the column names from the VPN details response
-			List<String> currentColumnNames = multiRecordParserVpn.getColumnNames();
 			// Then add the column names from the Spool details response after removing the VPN name column
-			List<String> tempColumnNames = multiRecordParserSpool.getColumnNames();
-			tempColumnNames.remove(0);
-			currentColumnNames.addAll(tempColumnNames);
+			// Since will be modifying the column names as supplied, do it to a copy of the List, not the actual one.
+			List<String> tempColumnNamesDetail = new ArrayList<String>();
+			tempColumnNamesDetail.addAll(multiRecordParserVpn.getColumnNames());
+			List<String> tempColumnNamesSpool = new ArrayList<String>();
+			tempColumnNamesSpool.addAll(multiRecordParserSpool.getColumnNames());
+			
+			tempColumnNamesSpool.remove(0);
+			tempColumnNamesDetail.addAll(tempColumnNamesSpool);
 			
 			// Then use this merged columns information to set the final display order
-			this.setDesiredColumnOrder(currentColumnNames);
+			this.setDesiredColumnOrder(tempColumnNamesDetail);
 			
 			// Save the ID for the local-configuration column too
-			localConfigurationStatusColumnID = currentColumnNames.indexOf("locally-configured");
+			localConfigurationStatusColumnID = tempColumnNamesDetail.indexOf("locally-configured");
 		}
 		
 		// Have the broker limits been successfully initialized? Expected to be done in onPostInitialize() but double check before using it
@@ -398,7 +411,14 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 			ArrayList<String> tableRow = new ArrayList<String>();
 			
 			for (Integer columnNumber : this.desiredColumnOrder){
-				tableRow.add( ((ArrayList<String>)vpnLimitsTableContent.get(index)).get(columnNumber));
+				
+				// If for whatever reason the desired column index was not found (i.e. -1), just pad it out with empty
+				if (columnNumber == -1) {
+					tableRow.add("-1"); 	// Can't be empty string without causing problems, need another placeholder.
+				}
+				else {
+					tableRow.add( ((ArrayList<String>)vpnLimitsTableContent.get(index)).get(columnNumber));
+				}
 			}
 			// Add the newly created row to reorderedTableContent
 			tempVpnLimitsTableContent.add(tableRow); 
