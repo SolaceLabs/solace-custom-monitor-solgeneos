@@ -35,6 +35,7 @@ import com.solacesystems.solgeneos.custommonitors.util.RatesHWM;
 import com.solacesystems.solgeneos.custommonitors.util.MonitorConstants;
 import com.solacesystems.solgeneos.custommonitors.util.SampleHttpSEMPResponse;
 import com.solacesystems.solgeneos.custommonitors.util.SampleResponseHandler;
+import com.solacesystems.solgeneos.custommonitors.util.SampleSEMPParser;
 import com.solacesystems.solgeneos.custommonitors.util.VPNRecordSEMPParser;
 import com.solacesystems.solgeneos.solgeneosagent.SolGeneosAgent;
 import com.solacesystems.solgeneos.solgeneosagent.UserPropertiesConfig;
@@ -44,7 +45,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.3.1";
+	static final public String MONITOR_VERSION = "1.4.0";
 	
 	// The SEMP query to execute:
     static final public String SHOW_VPN_RATES_REQUEST = 
@@ -74,20 +75,8 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
     // What should be the formatting style?
     static final private String FLOAT_FORMAT_STYLE = "%.2f";	// 2 decimal places
     		
-    // What is the desired order of columns? (Also serves to drop fields not needed in final output.)
-    static final private List<Integer> DESIRED_COLUMN_ORDER = Arrays.asList(
-    		RESPONSE_COLUMNS.indexOf("name"), 
-    		RESPONSE_COLUMNS.indexOf("current-ingress-rate-per-second"), RESPONSE_COLUMNS.indexOf("current-egress-rate-per-second"),
-    		RESPONSE_COLUMNS.indexOf("average-ingress-rate-per-minute"), RESPONSE_COLUMNS.indexOf("average-egress-rate-per-minute"),
-    		RESPONSE_COLUMNS.indexOf("current-ingress-byte-rate-per-second"), RESPONSE_COLUMNS.indexOf("current-egress-byte-rate-per-second"),
-    		RESPONSE_COLUMNS.indexOf("average-ingress-byte-rate-per-minute"), RESPONSE_COLUMNS.indexOf("average-egress-byte-rate-per-minute"),
-    		
-    		RESPONSE_COLUMNS.indexOf("client-data-messages-received"), RESPONSE_COLUMNS.indexOf("client-data-messages-sent"), RESPONSE_COLUMNS.indexOf("client-persistent-messages-received"), RESPONSE_COLUMNS.indexOf("client-persistent-messages-sent"),
-    		RESPONSE_COLUMNS.indexOf("client-non-persistent-messages-received"), RESPONSE_COLUMNS.indexOf("client-non-persistent-messages-sent"), RESPONSE_COLUMNS.indexOf("client-direct-messages-received"), RESPONSE_COLUMNS.indexOf("client-direct-messages-sent"),
-    		
-    		RESPONSE_COLUMNS.indexOf("client-data-bytes-received"), RESPONSE_COLUMNS.indexOf("client-data-bytes-sent"), RESPONSE_COLUMNS.indexOf("client-persistent-bytes-received"), RESPONSE_COLUMNS.indexOf("client-persistent-bytes-sent"),
-    		RESPONSE_COLUMNS.indexOf("client-non-persistent-bytes-received"), RESPONSE_COLUMNS.indexOf("client-non-persistent-bytes-sent"), RESPONSE_COLUMNS.indexOf("client-direct-bytes-received"), RESPONSE_COLUMNS.indexOf("client-direct-bytes-sent")
-    		);
+    // What is the desired order of columns? (Will be set after first getting a response)
+    private List<Integer> desiredColumnOrder;
     
     // Override the column names to more human friendly
     static final private List<String> COLUMN_NAME_OVERRIDE = 
@@ -378,6 +367,50 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		return messageRateHWM;  
 
 	}
+	
+	private void setDesiredColumnOrder (List<String> currentColumnNames) {
+	    
+		desiredColumnOrder = Arrays.asList(
+				currentColumnNames.indexOf("name"), 
+				currentColumnNames.indexOf("current-ingress-rate-per-second"), currentColumnNames.indexOf("current-egress-rate-per-second"),
+				currentColumnNames.indexOf("average-ingress-rate-per-minute"), currentColumnNames.indexOf("average-egress-rate-per-minute"),
+				currentColumnNames.indexOf("current-ingress-byte-rate-per-second"), currentColumnNames.indexOf("current-egress-byte-rate-per-second"),
+				currentColumnNames.indexOf("average-ingress-byte-rate-per-minute"), currentColumnNames.indexOf("average-egress-byte-rate-per-minute"),
+				
+				currentColumnNames.indexOf("client-data-messages-received"), currentColumnNames.indexOf("client-data-messages-sent"), currentColumnNames.indexOf("client-persistent-messages-received"), currentColumnNames.indexOf("client-persistent-messages-sent"),
+				currentColumnNames.indexOf("client-non-persistent-messages-received"), currentColumnNames.indexOf("client-non-persistent-messages-sent"), currentColumnNames.indexOf("client-direct-messages-received"), currentColumnNames.indexOf("client-direct-messages-sent"),
+				
+				currentColumnNames.indexOf("client-data-bytes-received"), currentColumnNames.indexOf("client-data-bytes-sent"), currentColumnNames.indexOf("client-persistent-bytes-received"), currentColumnNames.indexOf("client-persistent-bytes-sent"),
+				currentColumnNames.indexOf("client-non-persistent-bytes-received"), currentColumnNames.indexOf("client-non-persistent-bytes-sent"), currentColumnNames.indexOf("client-direct-bytes-received"), currentColumnNames.indexOf("client-direct-bytes-sent")
+		);
+		
+		// Did any expected field above not get found in the SEMP response? Report error if so...
+		if (desiredColumnOrder.contains(-1)) {
+			getLogger().error(
+					"Not all expected fields were present in the SEMP response when setting the column order. " 
+					+ "Available columns: " + currentColumnNames.toString()
+					+ "Final ordering as set: " + desiredColumnOrder.toString()
+					);
+		}
+	}
+
+	private void submitSEMPQuery (String sempQuery, SampleSEMPParser sempParser) throws Exception {
+		
+		// Get the first SEMP query response...
+		HttpPost post = new HttpPost(HTTP_REQUEST_URI);
+		post.setHeader(HEADER_CONTENT_TYPE_UTF8);
+		post.setEntity(new ByteArrayEntity(sempQuery.getBytes("UTF-8")));
+		
+		
+		SampleHttpSEMPResponse resp = httpClient.execute(post, responseHandler);
+        if (resp.getStatusCode() != 200) {
+        	throw new Exception("Error occurred while sending request: " + resp.getStatusCode() 
+        			+ " - " + resp.getReasonPhrase());
+        }	        
+        String respBody = resp.getRespBody();        
+        sempParser.parse(respBody);
+	}
+	
 	/**
 	 * This method is responsible to collect data required for a view.
 	 * @return The next monitor state which should be State.REPORTING_QUEUE.
@@ -392,26 +425,16 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		LinkedHashMap<String, Object> headlines;
 		LinkedHashMap<String, Object> headlinesHWM;
 		
-		// Construct table content
-		HttpPost post = new HttpPost(HTTP_REQUEST_URI);
-		post.setHeader(HEADER_CONTENT_TYPE_UTF8);
-		post.setEntity(new ByteArrayEntity(SHOW_VPN_RATES_REQUEST.getBytes("UTF-8")));
-		
-		
-		SampleHttpSEMPResponse resp = httpClient.execute(post, responseHandler);
-		
-        if (resp.getStatusCode() != 200) {
+		submitSEMPQuery(SHOW_VPN_RATES_REQUEST, multiRecordParser);
+		List<String> currentColumnNames = multiRecordParser.getColumnNames();
 
-        	throw new Exception("Error occurred while sending request: " + resp.getStatusCode() 
-        			+ " - " + resp.getReasonPhrase());
-        }	        
-        String respBody = resp.getRespBody();        
-		multiRecordParser.parse(respBody);
-		
-		
 		// Will take what is received as the table contents and then do further processing and adjusting... 
 		receivedTableContent = multiRecordParser.getTableContent();
 		
+		// Has the desired column order been determined yet? (Done on the first time responses and their columns came back.)
+		if (this.desiredColumnOrder == null) {
+			this.setDesiredColumnOrder(currentColumnNames);
+		}
 		
 		// First remove VPN entries that are 'locally-configured=false', they are not full VPN entries, but discovered from the Multi-Node Routing Network
 		// Will iterate the initial 'dirty' VPN data and filter rows to create the 'clean' VPN data. 
@@ -421,7 +444,6 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 		tempTableContent = new Vector<Object>();
 		
 		if (localConfigurationStatusColumnID == null) {
-			List<String> currentColumnNames = multiRecordParser.getColumnNames();
 			localConfigurationStatusColumnID = currentColumnNames.indexOf("locally-configured");
 		}
 		
@@ -446,7 +468,7 @@ public class MessageRatesMonitor extends BaseMonitor implements MonitorConstants
 			// Build a new tableRow by adding to it in the right order 
 			ArrayList<String> tableRow = new ArrayList<String>();
 			
-			for (Integer columnNumber : this.DESIRED_COLUMN_ORDER){
+			for (Integer columnNumber : this.desiredColumnOrder){
 				tableRow.add( ((ArrayList<String>)receivedTableContent.get(index)).get(columnNumber));
 			}
 			// Add the newly created row to reorderedTableContent
