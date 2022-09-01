@@ -36,7 +36,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.1.0";
+	static final public String MONITOR_VERSION = "1.2.0";
 	
 	// The SEMP query to execute:
     static final public String SHOW_QUEUES_REQUEST = 
@@ -445,6 +445,24 @@ public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
 						.filter(x -> x == 0) 		// Only the non-zero entries
 						.count() ;
 				
+				long queuesWithUnackedMsgs = 
+						goodTableContent
+						.stream()
+						.filter( tableRow -> !tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Delivered Messages Unacked") ).equalsIgnoreCase("0") )
+						.count() ;
+				
+				long queuesWithIngressDown = 
+						goodTableContent
+						.stream()
+						.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Ingress Status") ).equalsIgnoreCase("Down") )
+						.count() ;
+				
+				long queuesWithEgressDown = 
+						goodTableContent
+						.stream()
+						.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Egress Status") ).equalsIgnoreCase("Down") )
+						.count() ;
+				
 				long sumQueuedMsgs = 
 						goodTableContent
 						.stream()
@@ -463,19 +481,40 @@ public class QueuesExMonitor extends BaseMonitor implements MonitorConstants {
 				headlines.put("Queues with Pending Messages", Long.toString(queuesWithMsgs) );
 				headlines.put("Queues with Bound Clients", Long.toString(queuesWithBinds) );
 				headlines.put("Queues with Zero Bound Clients", Long.toString(queuesWithZeroBinds) );
+				headlines.put("Queues with Unacked Messages", Long.toString(queuesWithUnackedMsgs) );
+				headlines.put("Queues with Ingress State Down", Long.toString(queuesWithIngressDown) );
+				headlines.put("Queues with Egress State Down", Long.toString(queuesWithEgressDown) );
 				headlines.put("Total Messages Pending", Long.toString(sumQueuedMsgs) );
 				headlines.put("Total Spool Usage (MB)", String.format(FLOAT_FORMAT_STYLE, sumSpoolUsage));
 				headlines.put("Total Queues Count", goodTableContent.size());
 				
+				// When there are more endpoints than the allowed row limit, how to prioritise what makes the cut?
+				// Endpoints with Unacknowledged messages at the top. Then sort the remainder entries by spool utilisation. 
 				// Sort the list to show entries needing attention near to the top. Then also limit to the max row count if exceeding it...
 				Vector<ArrayList<String>> tempTableContent = new Vector<ArrayList<String>>();
+				Vector<ArrayList<String>> tempRemainderTableContent = new Vector<ArrayList<String>>();
 				Vector<ArrayList<String>> tempTableContentClients;
 				
 				tempTableContent.addAll(
 						goodTableContent
 						.stream()
+						.filter(tableRow -> !tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Delivered Messages Unacked")).equalsIgnoreCase("0"))
+						.collect(Collectors.toCollection(Vector<ArrayList<String>>::new))
+						);
+				
+				tempRemainderTableContent = 
+						goodTableContent
+						.stream()
+						.filter(tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Delivered Messages Unacked")).equalsIgnoreCase("0"))
+						.collect(Collectors.toCollection(Vector<ArrayList<String>>::new));
+				
+				long rowsAllowance = (queuesWithUnackedMsgs < maxRows)? maxRows - queuesWithUnackedMsgs : maxRows;
+				
+				tempTableContent.addAll(
+						tempRemainderTableContent
+						.stream()
 						.sorted(new QueuesComparator())
-						.limit(maxRows)				// Then cut the rows at max limit
+						.limit(rowsAllowance)
 						.collect(Collectors.toCollection(Vector<ArrayList<String>>::new))
 						);
 				

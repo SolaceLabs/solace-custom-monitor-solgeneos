@@ -23,7 +23,6 @@ import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.HttpParams;
 
-import com.solacesystems.solgeneos.custommonitors.QueuesExMonitor.FlowIDComparator;
 import com.solacesystems.solgeneos.custommonitors.util.MonitorConstants;
 import com.solacesystems.solgeneos.custommonitors.util.SampleHttpSEMPResponse;
 import com.solacesystems.solgeneos.custommonitors.util.SampleResponseHandler;
@@ -37,7 +36,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.1.0";
+	static final public String MONITOR_VERSION = "1.2.0";
 	
 	// The SEMP query to execute:
     static final public String SHOW_TES_REQUEST = 
@@ -441,6 +440,24 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
 						.filter(x -> x == 0) 		// Only the non-zero entries
 						.count() ;
 				
+				long endpointsWithUnackedMsgs = 
+						goodTableContent
+						.stream()
+						.filter( tableRow -> !tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Delivered Messages Unacked") ).equalsIgnoreCase("0") )
+						.count() ;
+				
+				long endpointsWithIngressDown = 
+						goodTableContent
+						.stream()
+						.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Ingress Status") ).equalsIgnoreCase("Down") )
+						.count() ;
+				
+				long endpointsWithEgressDown = 
+						goodTableContent
+						.stream()
+						.filter( tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Egress Status") ).equalsIgnoreCase("Down") )
+						.count() ;
+				
 				long sumEndpointsMsgs = 
 						goodTableContent
 						.stream()
@@ -459,19 +476,40 @@ public class TopicEndpointsExMonitor extends BaseMonitor implements MonitorConst
 				headlines.put("Topic Endpoints with Pending Messages", Long.toString(endpointsWithMsgs) );
 				headlines.put("Topic Endpoints with Bound Clients", Long.toString(endpointsWithBinds) );
 				headlines.put("Topic Endpoints with Zero Bound Clients", Long.toString(endpointsWithZeroBinds) );
+				headlines.put("Topic Endpoints with Unacked Messages", Long.toString(endpointsWithUnackedMsgs) );
+				headlines.put("Topic Endpoints with Ingress State Down", Long.toString(endpointsWithIngressDown) );
+				headlines.put("Topic Endpoints with Egress State Down", Long.toString(endpointsWithEgressDown) );
 				headlines.put("Total Messages Pending", Long.toString(sumEndpointsMsgs) );
 				headlines.put("Total Spool Usage (MB)", String.format(FLOAT_FORMAT_STYLE, sumSpoolUsage));
 				headlines.put("Total Topic Endpoints Count", goodTableContent.size());
 				
+				// When there are more endpoints than the allowed row limit, how to prioritise what makes the cut?
+				// Endpoints with Unacknowledged messages at the top. Then sort the remainder entries by spool utilisation.
 				// Sort the list to show entries needing attention near to the top. Then also limit to the max row count if exceeding it...
 				Vector<ArrayList<String>> tempTableContent = new Vector<ArrayList<String>>();
+				Vector<ArrayList<String>> tempRemainderTableContent = new Vector<ArrayList<String>>();
 				Vector<ArrayList<String>> tempTableContentClients;
 				
 				tempTableContent.addAll(
 						goodTableContent
 						.stream()
+						.filter(tableRow -> !tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Delivered Messages Unacked")).equalsIgnoreCase("0"))
+						.collect(Collectors.toCollection(Vector<ArrayList<String>>::new))
+						);
+				
+				tempRemainderTableContent = 
+						goodTableContent
+						.stream()
+						.filter(tableRow -> tableRow.get( COLUMN_NAME_OVERRIDE.indexOf("Delivered Messages Unacked")).equalsIgnoreCase("0"))
+						.collect(Collectors.toCollection(Vector<ArrayList<String>>::new));
+						
+				long rowsAllowance = (endpointsWithUnackedMsgs < maxRows)? maxRows - endpointsWithUnackedMsgs : maxRows;
+
+				tempTableContent.addAll(
+						tempRemainderTableContent
+						.stream()
 						.sorted(new TopicEndpointsComparator())
-						.limit(maxRows)				// Then cut the rows at max limit
+						.limit(rowsAllowance)
 						.collect(Collectors.toCollection(Vector<ArrayList<String>>::new))
 						);
 				
