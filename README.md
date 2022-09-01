@@ -32,10 +32,13 @@ No.  | Name | Function |
 4 | [MessageRates Monitor](#4-messagerates-monitor) | New monitor to display message and byte rate activity as well as identify top-talkers and track high water marks (HWMs) |
 5 | [MessageVPNLimits Monitor](#5-messagevpnlimits-monitor) | New monitor to clearly display 'current usage vs. max limit' of various capacity-related resources at a message-vpn level |
 6 | [BrokerLimits Monitor](#6-brokerlimits-monitor) | New monitor to clearly display 'current allocated vs. broker hard limit' of various capacity related resources |
-7 | [ClientsTopPublishers Monitor](#7-clientstoppublishers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
-8 | [ClientsSlowSubscribers Monitor](#8-clientsslowsubscribers-monitor) | New monitor to show all clients the broker has determined to be slow subscribers |
-9 | [MessagingTester Monitor](#9-messagingtester-monitor) | New monitor for 'synthetic monitoring', periodically performing message send and receive to validate the infrastructure more holistically |
-10 | [SoftwareSystemHealth Monitor](#10-softwaresystemhealth-monitor) | New monitor specifically for Software Broker deployments. Providing health metrics for the environment the broker is deployed in |
+7 | [ClientProfileLimits Monitor](#7-clientprofilelimits-monitor) | New monitor to clearly display 'current usage vs. max limit' of various capacity-related resources at a client profile level |
+8 | [ClientsTopPublishers Monitor](#8-clientstoppublishers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
+9 | [ClientsTopSubscribers Monitor](#9-clientstopsubscribers-monitor) | New monitor to show the top 10 connected clients by publisher activity |
+10 | [ClientsSlowSubscribers Monitor](#10-clientsslowsubscribers-monitor) | New monitor to show all clients the broker has determined to be slow subscribers |
+11 | [MessagingTester Monitor](#11-messagingtester-monitor) | New monitor for 'synthetic monitoring', periodically performing message send and receive to validate the infrastructure more holistically |
+12 | [SoftwareSystemHealth Monitor](#12-softwaresystemhealth-monitor) | New monitor specifically for Software Broker deployments. Providing health metrics for the environment the broker is deployed in |
+13 | [MessageVPNBridgeRates Monitor](#13-messagevpnbridgerates-monitor) | New monitor to show the configured message VPN bridges, the message and byte rate activity of them, as well as health of the underlying TCP connections. |
 
 ### (1) Users Monitor
 
@@ -117,21 +120,33 @@ Additionally, if an organisation is also adopting a policy of 'overcommitting' o
 Sample of the new dataview showing various resources for their current usage, total allocation to the configured message-VPNs, and the actual hard limit:  
 ![BrokerLimits Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/BrokerLimits%20-%20Dataview%20Sample.png?raw=true)
 
-### (7) ClientsTopPublishers Monitor
+### (7) ClientProfileLimits Monitor
+
+This monitor provides new functionality to look at resource related limits at a per-Client Profile level. One level deeper resource allocation than what is set at the VPN level, this monitor complements the earlier `MessageVPNLimits` Monitor (#5 above). 
+This monitor also displays the resources (e.g. number of connections, number of subscriptions) in a 'current usage vs configured limit' manner. This makes rules easier to apply where percentage utilisation can be worked out to highlight any Client Profiles that are operating close to their configured soft limits.
+
+Features implemented in the monitor include:
+* A computed "utilisation score" is done for each Client Profile to highlight those needing attention versus those that don't. This score is used to help prioritise the Profiles that should be caught in the dataview if the number of Profiles on the broker is higher than the `max rows` limit configured for the dataview. 
+
+### (8) ClientsTopPublishers Monitor
 
 This monitor augments the earlier `MessageRates` Monitor (#4 above) to show message and byte rate activity at an individual client level. The dataview quite simply shows the top 10 connected clients when ordered by the average publishing byte rate. For a holistic view, the dataset also includes the current and average message rate of the client, the current byte rate, and the total published bytes for each client.
 
 Sample of the new dataview showing (upto) the top 10 publishers:  
 ![ClientsTopPublishers Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/ClientsTopPublishers%20-%20Dataview%20Sample.png?raw=true)
 
-### (8) ClientsSlowSubscribers Monitor
+### (9) ClientsTopSubscribers Monitor
+
+This monitor complements the earlier `TopPublishers` Monitor (#8 above) to show message and byte rate activity at an individual client level. The dataview quite simply shows the top 10 connected clients when ordered by the average subscribing byte rate. For a holistic view, the dataset also includes the current and average message rate of the client, the current byte rate, and the total published bytes for each client.
+
+### (10) ClientsSlowSubscribers Monitor
 
 This monitor shows the connected clients that are marked by the broker as being slow subscribers. That is, the clients are not servicing their network sockets fast enough to keep up with what the broker is transmitting to it. While these clients cannot cause adverse impact to the broker (and will automatically be disconnected if necessary), this monitor allows for such applications to be proactively detected so operational troubleshooting can take place. Most often, these clients are ones that are either bandwidth or CPU constrained on the host they reside, so detecting this condition early to take some action can prevent a wider outage for the application.
 
 Sample of the new dataview showing (if any) clients that are being slow:  
 ![ClientsSlowSubscribers Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/ClientsSlowSubscribers%20-%20Dataview%20Sample.png?raw=true)
 
-### (9) MessagingTester Monitor
+### (11) MessagingTester Monitor
 
 This monitor can be considered an 'advanced' monitor in that it goes beyond looking at metrics to perform ['synthetic monitoring'](https://en.wikipedia.org/wiki/Synthetic_monitoring) by periodically performing message send and receive tests using the broker's SMF client API. The effect is a more holistic peace of mind that the event broker is healthy because all surrounding infrastructure is also covered in the test.   
 Consider what could be involved in the scenario of an application connecting to the broker: 
@@ -151,7 +166,7 @@ Sample of the new dataview showing an inability to resolve the SMF connection UR
 Sample of the new dataview showing an inability to publish new persistent messages as the storage spool is full/unavailable: 
 ![MessagingTester Dataview Sample 2](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/MessagingTester%20-%20Dataview%20Sample%20-%20Error%202.png?raw=true)
 
-### (10) SoftwareSystemHealth Monitor
+### (12) SoftwareSystemHealth Monitor
 
 This monitor shows the runtime metrics as reported by the `show system health` CLI command, allowing for the health and performance of the underlying infrastructure of a Software Broker deployment to be monitored. More information for these metrics is available at this [documentation link](https://docs.solace.com/System-and-Software-Maintenance/SW-Health-Monitoring.htm#Direct). 
 
@@ -159,6 +174,11 @@ This monitor shows the runtime metrics as reported by the `show system health` C
 
 Sample of the new dataview showing the latency metrics for health assessment:  
 ![SoftwareSystemHealth Dataview Sample](https://github.com/itsJamilAhmed/solace-custom-monitor-solgeneos/blob/master/images/SoftwareSystemHealth%20-%20Dataview%20Sample.png?raw=true)
+
+### (13) MessageVPNBridgeRates Monitor
+
+This monitor shows the configured message VPN bridges, their current message and byte rates, as well as metrics on the underlying TCP connection. e.g. Current round-trip latency and state of the Send and Recv Queues. 
+
 
 ## How to use this repository
 
