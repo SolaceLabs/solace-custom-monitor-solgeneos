@@ -39,6 +39,7 @@ No.  | Name | Function |
 11 | [MessagingTester Monitor](#11-messagingtester-monitor) | New monitor for 'synthetic monitoring', periodically performing message send and receive to validate the infrastructure more holistically |
 12 | [SoftwareSystemHealth Monitor](#12-softwaresystemhealth-monitor) | New monitor specifically for Software Broker deployments. Providing health metrics for the environment the broker is deployed in |
 13 | [MessageVPNBridgeRates Monitor](#13-messagevpnbridgerates-monitor) | New monitor to show the configured message VPN bridges, the message and byte rate activity of them, as well as health of the underlying TCP connections. |
+14 | [ConfigSyncStatus Monitor](#14-configsyncstatus-monitor) | New monitor to show the status of entries in the Config-Sync database. |
 
 ### (1) Users Monitor
 
@@ -173,11 +174,18 @@ This monitor shows the runtime metrics as reported by the `show system health` C
 **Note:** The configuration for this monitor is disabled by default, and needs to set `autoStart=true` to enable it when the broker being monitored is the software option.
 
 Sample of the new dataview showing the latency metrics for health assessment:  
-![SoftwareSystemHealth Dataview Sample](https://github.com/itsJamilAhmed/solace-custom-monitor-solgeneos/blob/master/images/SoftwareSystemHealth%20-%20Dataview%20Sample.png?raw=true)
+![SoftwareSystemHealth Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/SoftwareSystemHealth%20-%20Dataview%20Sample.png?raw=true)
 
 ### (13) MessageVPNBridgeRates Monitor
 
 This monitor shows the configured message VPN bridges, their current message and byte rates, as well as metrics on the underlying TCP connection. e.g. Current round-trip latency and state of the Send and Recv Queues. 
+
+### (14) ConfigSyncStatus Monitor
+
+This monitor shows the entries in the Config-Sync database, along with their status such as 'In-Sync', 'Out-Of-Sync' or 'Stale'.  
+
+Sample of the new dataview showing the entries and their sync status:  
+![SoftwareSystemHealth Dataview Sample](https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/blob/master/images/ConfigSyncStatus%20-%20Dataview%20Sample.png?raw=true)
 
 
 ## How to use this repository
