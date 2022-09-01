@@ -1,5 +1,5 @@
 <ruleGroup name="Custom Monitors v1-0-0">
-    <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+    <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
     <rule name="Last Sample Time">
         <targets>
             <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview/headlines/cell[(@name=&quot;Last Sample Time&quot;)]</target>
@@ -35,7 +35,7 @@
         </block>
     </rule>
     <ruleGroup name="BrokerLimits">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
         <rule name="Allocated Limit">
             <targets>
                 <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview/rows/row/cell[(@column=&quot;Allocated Limit&quot;)]</target>
@@ -274,7 +274,7 @@
         </rule>
     </ruleGroup>
     <ruleGroup name="MessageVPNLimits">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
         <rule name="Connections SMF">
             <targets>
                 <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;MessageVPNLimits&quot;)]/rows/row[wild(@name,&quot;*&quot;)]/cell[(@column=&quot;Connections (SMF) - Current&quot;)]</target>
@@ -1222,485 +1222,8 @@
             </block>
         </rule>
     </ruleGroup>
-    <ruleGroup name="ClientProfileLimits">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
-        <rule name="Connections">
-            <targets>
-                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row[wild(@name,&quot;*&quot;)]/cell[(@column=&quot;Connections - Current&quot;)]</target>
-            </targets>
-            <priority>100</priority>
-            <pathAliases>
-                <pathAlias name="Max Configured">../cell[(@column=&quot;Connections - Max&quot;)]</pathAlias>
-            </pathAliases>
-            <block>
-                <!-- Rule to check the current usage against the profile maximum configured limit-->
-                <!-- Currently looking at all rows, i.e. all profiles. Can replace the wildcard * with a VPN name for more targeted rule application for individual teams-->
-                <set>
-                    <var ref="max_configured"></var>
-                    <dataItem>
-                        <pathAlias ref="Max Configured"></pathAlias>
-                        <property>@value</property>
-                    </dataItem>
-                </set>
-                <set>
-                    <var ref="high_threshold"></var>
-                    <integer>65</integer>
-                </set>
-                <set>
-                    <var ref="exceed_threshold"></var>
-                    <integer>80</integer>
-                </set>
-                <set>
-                    <var ref="value"></var>
-                    <multiply>
-                        <divide>
-                            <dataItem>
-                                <property>@value</property>
-                            </dataItem>
-                            <var ref="max_configured"></var>
-                        </divide>
-                        <integer>100</integer>
-                    </multiply>
-                </set>
-                <if>
-                    <and>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <equal>
-                            <dataItem>
-                                <property>state/@severity</property>
-                            </dataItem>
-                            <severity>undefined</severity>
-                        </equal>
-                    </and>
-                    <transaction>
-                        <update>
-                            <property>state/@severity</property>
-                            <severity>ok</severity>
-                        </update>
-                    </transaction>
-                    <if>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <transaction>
-                            <delay>300</delay>
-                            <update>
-                                <property>state/@severity</property>
-                                <severity>ok</severity>
-                            </update>
-                        </transaction>
-                        <if>
-                            <and>
-                                <and>
-                                    <gte>
-                                        <var ref="value"></var>
-                                        <var ref="high_threshold"></var>
-                                    </gte>
-                                    <lte>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </lte>
-                                </and>
-                                <notEqual>
-                                    <dataItem>
-                                        <property>state/@severity</property>
-                                    </dataItem>
-                                    <severity>warning</severity>
-                                </notEqual>
-                            </and>
-                            <transaction>
-                                <update>
-                                    <property>state/@severity</property>
-                                    <severity>warning</severity>
-                                </update>
-                            </transaction>
-                            <if>
-                                <and>
-                                    <gt>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </gt>
-                                    <notEqual>
-                                        <dataItem>
-                                            <property>state/@severity</property>
-                                        </dataItem>
-                                        <severity>critical</severity>
-                                    </notEqual>
-                                </and>
-                                <transaction>
-                                    <update>
-                                        <property>state/@severity</property>
-                                        <severity>critical</severity>
-                                    </update>
-                                </transaction>
-                            </if>
-                        </if>
-                    </if>
-                </if>
-            </block>
-        </rule>
-        <rule name="Subscriptions">
-            <targets>
-                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row[wild(@name,&quot;*&quot;)]/cell[(@column=&quot;Subscriptions - Current&quot;)]</target>
-            </targets>
-            <priority>100</priority>
-            <pathAliases>
-                <pathAlias name="Max Configured">../cell[(@column=&quot;Subscriptions - Max&quot;)]</pathAlias>
-            </pathAliases>
-            <block>
-                <!-- Rule to check the current usage against the profile maximum configured limit-->
-                <!-- Currently looking at all rows, i.e. all VPNs. Can replace the wildcard * with a VPN name for more targeted rule application for individual teams-->
-                <set>
-                    <var ref="max_configured"></var>
-                    <dataItem>
-                        <pathAlias ref="Max Configured"></pathAlias>
-                        <property>@value</property>
-                    </dataItem>
-                </set>
-                <set>
-                    <var ref="high_threshold"></var>
-                    <integer>65</integer>
-                </set>
-                <set>
-                    <var ref="exceed_threshold"></var>
-                    <integer>80</integer>
-                </set>
-                <set>
-                    <var ref="value"></var>
-                    <multiply>
-                        <divide>
-                            <dataItem>
-                                <property>@value</property>
-                            </dataItem>
-                            <var ref="max_configured"></var>
-                        </divide>
-                        <integer>100</integer>
-                    </multiply>
-                </set>
-                <if>
-                    <and>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <equal>
-                            <dataItem>
-                                <property>state/@severity</property>
-                            </dataItem>
-                            <severity>undefined</severity>
-                        </equal>
-                    </and>
-                    <transaction>
-                        <update>
-                            <property>state/@severity</property>
-                            <severity>ok</severity>
-                        </update>
-                    </transaction>
-                    <if>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <transaction>
-                            <delay>300</delay>
-                            <update>
-                                <property>state/@severity</property>
-                                <severity>ok</severity>
-                            </update>
-                        </transaction>
-                        <if>
-                            <and>
-                                <and>
-                                    <gte>
-                                        <var ref="value"></var>
-                                        <var ref="high_threshold"></var>
-                                    </gte>
-                                    <lte>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </lte>
-                                </and>
-                                <notEqual>
-                                    <dataItem>
-                                        <property>state/@severity</property>
-                                    </dataItem>
-                                    <severity>warning</severity>
-                                </notEqual>
-                            </and>
-                            <transaction>
-                                <update>
-                                    <property>state/@severity</property>
-                                    <severity>warning</severity>
-                                </update>
-                            </transaction>
-                            <if>
-                                <and>
-                                    <gt>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </gt>
-                                    <notEqual>
-                                        <dataItem>
-                                            <property>state/@severity</property>
-                                        </dataItem>
-                                        <severity>critical</severity>
-                                    </notEqual>
-                                </and>
-                                <transaction>
-                                    <update>
-                                        <property>state/@severity</property>
-                                        <severity>critical</severity>
-                                    </update>
-                                </transaction>
-                            </if>
-                        </if>
-                    </if>
-                </if>
-            </block>
-        </rule>
-        <rule name="Ingress Flows">
-            <targets>
-                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row/cell[(@column=&quot;Ingress Flows - Current&quot;)]</target>
-            </targets>
-            <priority>100</priority>
-            <pathAliases>
-                <pathAlias name="Max Configured">../cell[(@column=&quot;Ingress Flows - Max&quot;)]</pathAlias>
-            </pathAliases>
-            <block>
-                <!-- Rule to check the current usage against the profile maximum configured limit-->
-                <set>
-                    <var ref="max_configured"></var>
-                    <dataItem>
-                        <pathAlias ref="Max Configured"></pathAlias>
-                        <property>@value</property>
-                    </dataItem>
-                </set>
-                <set>
-                    <var ref="high_threshold"></var>
-                    <integer>65</integer>
-                </set>
-                <set>
-                    <var ref="exceed_threshold"></var>
-                    <integer>80</integer>
-                </set>
-                <set>
-                    <var ref="value"></var>
-                    <multiply>
-                        <divide>
-                            <dataItem>
-                                <property>@value</property>
-                            </dataItem>
-                            <var ref="max_configured"></var>
-                        </divide>
-                        <integer>100</integer>
-                    </multiply>
-                </set>
-                <if>
-                    <and>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <equal>
-                            <dataItem>
-                                <property>state/@severity</property>
-                            </dataItem>
-                            <severity>undefined</severity>
-                        </equal>
-                    </and>
-                    <transaction>
-                        <update>
-                            <property>state/@severity</property>
-                            <severity>ok</severity>
-                        </update>
-                    </transaction>
-                    <if>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <transaction>
-                            <delay>300</delay>
-                            <update>
-                                <property>state/@severity</property>
-                                <severity>ok</severity>
-                            </update>
-                        </transaction>
-                        <if>
-                            <and>
-                                <and>
-                                    <gte>
-                                        <var ref="value"></var>
-                                        <var ref="high_threshold"></var>
-                                    </gte>
-                                    <lte>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </lte>
-                                </and>
-                                <notEqual>
-                                    <dataItem>
-                                        <property>state/@severity</property>
-                                    </dataItem>
-                                    <severity>warning</severity>
-                                </notEqual>
-                            </and>
-                            <transaction>
-                                <update>
-                                    <property>state/@severity</property>
-                                    <severity>warning</severity>
-                                </update>
-                            </transaction>
-                            <if>
-                                <and>
-                                    <gt>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </gt>
-                                    <notEqual>
-                                        <dataItem>
-                                            <property>state/@severity</property>
-                                        </dataItem>
-                                        <severity>critical</severity>
-                                    </notEqual>
-                                </and>
-                                <transaction>
-                                    <update>
-                                        <property>state/@severity</property>
-                                        <severity>critical</severity>
-                                    </update>
-                                </transaction>
-                            </if>
-                        </if>
-                    </if>
-                </if>
-            </block>
-        </rule>
-        <rule name="Egress Flows">
-            <targets>
-                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row/cell[(@column=&quot;Egress Flows - Current&quot;)]</target>
-            </targets>
-            <priority>100</priority>
-            <pathAliases>
-                <pathAlias name="Max Configured">../cell[(@column=&quot;Egress Flows - Max&quot;)]</pathAlias>
-            </pathAliases>
-            <block>
-                <!-- Rule to check the current usage against the profile maximum configured limit-->
-                <set>
-                    <var ref="max_configured"></var>
-                    <dataItem>
-                        <pathAlias ref="Max Configured"></pathAlias>
-                        <property>@value</property>
-                    </dataItem>
-                </set>
-                <set>
-                    <var ref="high_threshold"></var>
-                    <integer>65</integer>
-                </set>
-                <set>
-                    <var ref="exceed_threshold"></var>
-                    <integer>80</integer>
-                </set>
-                <set>
-                    <var ref="value"></var>
-                    <multiply>
-                        <divide>
-                            <dataItem>
-                                <property>@value</property>
-                            </dataItem>
-                            <var ref="max_configured"></var>
-                        </divide>
-                        <integer>100</integer>
-                    </multiply>
-                </set>
-                <if>
-                    <and>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <equal>
-                            <dataItem>
-                                <property>state/@severity</property>
-                            </dataItem>
-                            <severity>undefined</severity>
-                        </equal>
-                    </and>
-                    <transaction>
-                        <update>
-                            <property>state/@severity</property>
-                            <severity>ok</severity>
-                        </update>
-                    </transaction>
-                    <if>
-                        <lt>
-                            <var ref="value"></var>
-                            <var ref="high_threshold"></var>
-                        </lt>
-                        <transaction>
-                            <delay>300</delay>
-                            <update>
-                                <property>state/@severity</property>
-                                <severity>ok</severity>
-                            </update>
-                        </transaction>
-                        <if>
-                            <and>
-                                <and>
-                                    <gte>
-                                        <var ref="value"></var>
-                                        <var ref="high_threshold"></var>
-                                    </gte>
-                                    <lte>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </lte>
-                                </and>
-                                <notEqual>
-                                    <dataItem>
-                                        <property>state/@severity</property>
-                                    </dataItem>
-                                    <severity>warning</severity>
-                                </notEqual>
-                            </and>
-                            <transaction>
-                                <update>
-                                    <property>state/@severity</property>
-                                    <severity>warning</severity>
-                                </update>
-                            </transaction>
-                            <if>
-                                <and>
-                                    <gt>
-                                        <var ref="value"></var>
-                                        <var ref="exceed_threshold"></var>
-                                    </gt>
-                                    <notEqual>
-                                        <dataItem>
-                                            <property>state/@severity</property>
-                                        </dataItem>
-                                        <severity>critical</severity>
-                                    </notEqual>
-                                </and>
-                                <transaction>
-                                    <update>
-                                        <property>state/@severity</property>
-                                        <severity>critical</severity>
-                                    </update>
-                                </transaction>
-                            </if>
-                        </if>
-                    </if>
-                </if>
-            </block>
-        </rule>
-    </ruleGroup>
     <ruleGroup name="QueuesEx">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
         <rule name="Spool Usage">
             <targets>
                 <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;QueuesEx&quot;)]/rows/row/cell[(@column=&quot;Spool Usage (MB)&quot;)]</target>
@@ -2177,7 +1700,7 @@
         </rule>
     </ruleGroup>
     <ruleGroup name="TopicEndpointsEx">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
         <rule name="Spool Usage">
             <targets>
                 <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;TopicEndpointsEx&quot;)]/rows/row/cell[(@column=&quot;Spool Usage (MB)&quot;)]</target>
@@ -2608,7 +2131,7 @@
         </rule>
     </ruleGroup>
     <ruleGroup name="ClientsSlowSubscribers">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
         <rule name="Slow Subscriber Count">
             <targets>
                 <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientsSlowSubscribers&quot;)]/headlines/cell[(@name=&quot;Number of Slow Subscribers&quot;)]</target>
@@ -2640,7 +2163,7 @@
         </rule>
     </ruleGroup>
     <ruleGroup name="MessagingTester">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
         <rule name="Monitor Status">
             <targets>
                 <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;MessagingTester&quot;)]/headlines/cell[(@name=&quot;Monitor Status&quot;)]</target>
@@ -2840,7 +2363,7 @@
         </rule>
     </ruleGroup>
     <ruleGroup name="MessageRatesHWM">
-        <!-- Rule samples from https://github.com/SolaceLabs/solace-custom-monitor-solgeneos/ -->
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
         <rule name="Current Msg Rate">
             <targets>
                 <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;MessageRatesHWM&quot;)]/rows/row[wild(@name,&quot;Current Msg Rate*&quot;)]/cell[(@column=&quot;Current Msg Rate&quot;)]</target>
@@ -3053,6 +2576,1010 @@
                             <severity>undefined</severity>
                         </update>
                     </transaction>
+                </if>
+            </block>
+        </rule>
+    </ruleGroup>
+    <ruleGroup name="ClientProfileLimits">
+        <!-- Rule samples from https://github.com/SolaceLabs/solgeneos-custom-monitors/ -->
+        <rule name="Connections">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row[wild(@name,&quot;*&quot;)]/cell[(@column=&quot;Connections - Current&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <pathAliases>
+                <pathAlias name="Max Configured">../cell[(@column=&quot;Connections - Max&quot;)]</pathAlias>
+            </pathAliases>
+            <block>
+                <!-- Rule to check the current usage against the profile maximum configured limit-->
+                <!-- Currently looking at all rows, i.e. all profiles. Can replace the wildcard * with a VPN name for more targeted rule application for individual teams-->
+                <set>
+                    <var ref="max_configured"></var>
+                    <dataItem>
+                        <pathAlias ref="Max Configured"></pathAlias>
+                        <property>@value</property>
+                    </dataItem>
+                </set>
+                <set>
+                    <var ref="high_threshold"></var>
+                    <integer>65</integer>
+                </set>
+                <set>
+                    <var ref="exceed_threshold"></var>
+                    <integer>80</integer>
+                </set>
+                <set>
+                    <var ref="value"></var>
+                    <multiply>
+                        <divide>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <var ref="max_configured"></var>
+                        </divide>
+                        <integer>100</integer>
+                    </multiply>
+                </set>
+                <if>
+                    <and>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <equal>
+                            <dataItem>
+                                <property>state/@severity</property>
+                            </dataItem>
+                            <severity>undefined</severity>
+                        </equal>
+                    </and>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <transaction>
+                            <delay>300</delay>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <and>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="high_threshold"></var>
+                                    </gte>
+                                    <lte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </lte>
+                                </and>
+                                <notEqual>
+                                    <dataItem>
+                                        <property>state/@severity</property>
+                                    </dataItem>
+                                    <severity>warning</severity>
+                                </notEqual>
+                            </and>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <if>
+                                <and>
+                                    <gt>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </gt>
+                                    <notEqual>
+                                        <dataItem>
+                                            <property>state/@severity</property>
+                                        </dataItem>
+                                        <severity>critical</severity>
+                                    </notEqual>
+                                </and>
+                                <transaction>
+                                    <update>
+                                        <property>state/@severity</property>
+                                        <severity>critical</severity>
+                                    </update>
+                                </transaction>
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Subscriptions">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row[wild(@name,&quot;*&quot;)]/cell[(@column=&quot;Subscriptions - Current&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <pathAliases>
+                <pathAlias name="Max Configured">../cell[(@column=&quot;Subscriptions - Max&quot;)]</pathAlias>
+            </pathAliases>
+            <block>
+                <!-- Rule to check the current usage against the profile maximum configured limit-->
+                <!-- Currently looking at all rows, i.e. all VPNs. Can replace the wildcard * with a VPN name for more targeted rule application for individual teams-->
+                <set>
+                    <var ref="max_configured"></var>
+                    <dataItem>
+                        <pathAlias ref="Max Configured"></pathAlias>
+                        <property>@value</property>
+                    </dataItem>
+                </set>
+                <set>
+                    <var ref="high_threshold"></var>
+                    <integer>65</integer>
+                </set>
+                <set>
+                    <var ref="exceed_threshold"></var>
+                    <integer>80</integer>
+                </set>
+                <set>
+                    <var ref="value"></var>
+                    <multiply>
+                        <divide>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <var ref="max_configured"></var>
+                        </divide>
+                        <integer>100</integer>
+                    </multiply>
+                </set>
+                <if>
+                    <and>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <equal>
+                            <dataItem>
+                                <property>state/@severity</property>
+                            </dataItem>
+                            <severity>undefined</severity>
+                        </equal>
+                    </and>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <transaction>
+                            <delay>300</delay>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <and>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="high_threshold"></var>
+                                    </gte>
+                                    <lte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </lte>
+                                </and>
+                                <notEqual>
+                                    <dataItem>
+                                        <property>state/@severity</property>
+                                    </dataItem>
+                                    <severity>warning</severity>
+                                </notEqual>
+                            </and>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <if>
+                                <and>
+                                    <gt>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </gt>
+                                    <notEqual>
+                                        <dataItem>
+                                            <property>state/@severity</property>
+                                        </dataItem>
+                                        <severity>critical</severity>
+                                    </notEqual>
+                                </and>
+                                <transaction>
+                                    <update>
+                                        <property>state/@severity</property>
+                                        <severity>critical</severity>
+                                    </update>
+                                </transaction>
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Ingress Flows">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row/cell[(@column=&quot;Ingress Flows - Current&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <pathAliases>
+                <pathAlias name="Max Configured">../cell[(@column=&quot;Ingress Flows - Max&quot;)]</pathAlias>
+            </pathAliases>
+            <block>
+                <!-- Rule to check the current usage against the profile maximum configured limit-->
+                <set>
+                    <var ref="max_configured"></var>
+                    <dataItem>
+                        <pathAlias ref="Max Configured"></pathAlias>
+                        <property>@value</property>
+                    </dataItem>
+                </set>
+                <set>
+                    <var ref="high_threshold"></var>
+                    <integer>65</integer>
+                </set>
+                <set>
+                    <var ref="exceed_threshold"></var>
+                    <integer>80</integer>
+                </set>
+                <set>
+                    <var ref="value"></var>
+                    <multiply>
+                        <divide>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <var ref="max_configured"></var>
+                        </divide>
+                        <integer>100</integer>
+                    </multiply>
+                </set>
+                <if>
+                    <and>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <equal>
+                            <dataItem>
+                                <property>state/@severity</property>
+                            </dataItem>
+                            <severity>undefined</severity>
+                        </equal>
+                    </and>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <transaction>
+                            <delay>300</delay>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <and>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="high_threshold"></var>
+                                    </gte>
+                                    <lte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </lte>
+                                </and>
+                                <notEqual>
+                                    <dataItem>
+                                        <property>state/@severity</property>
+                                    </dataItem>
+                                    <severity>warning</severity>
+                                </notEqual>
+                            </and>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <if>
+                                <and>
+                                    <gt>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </gt>
+                                    <notEqual>
+                                        <dataItem>
+                                            <property>state/@severity</property>
+                                        </dataItem>
+                                        <severity>critical</severity>
+                                    </notEqual>
+                                </and>
+                                <transaction>
+                                    <update>
+                                        <property>state/@severity</property>
+                                        <severity>critical</severity>
+                                    </update>
+                                </transaction>
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Egress Flows">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ClientProfileLimits&quot;)]/rows/row/cell[(@column=&quot;Egress Flows - Current&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <pathAliases>
+                <pathAlias name="Max Configured">../cell[(@column=&quot;Egress Flows - Max&quot;)]</pathAlias>
+            </pathAliases>
+            <block>
+                <!-- Rule to check the current usage against the profile maximum configured limit-->
+                <set>
+                    <var ref="max_configured"></var>
+                    <dataItem>
+                        <pathAlias ref="Max Configured"></pathAlias>
+                        <property>@value</property>
+                    </dataItem>
+                </set>
+                <set>
+                    <var ref="high_threshold"></var>
+                    <integer>65</integer>
+                </set>
+                <set>
+                    <var ref="exceed_threshold"></var>
+                    <integer>80</integer>
+                </set>
+                <set>
+                    <var ref="value"></var>
+                    <multiply>
+                        <divide>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <var ref="max_configured"></var>
+                        </divide>
+                        <integer>100</integer>
+                    </multiply>
+                </set>
+                <if>
+                    <and>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <equal>
+                            <dataItem>
+                                <property>state/@severity</property>
+                            </dataItem>
+                            <severity>undefined</severity>
+                        </equal>
+                    </and>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <transaction>
+                            <delay>300</delay>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <and>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="high_threshold"></var>
+                                    </gte>
+                                    <lte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </lte>
+                                </and>
+                                <notEqual>
+                                    <dataItem>
+                                        <property>state/@severity</property>
+                                    </dataItem>
+                                    <severity>warning</severity>
+                                </notEqual>
+                            </and>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <if>
+                                <and>
+                                    <gt>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </gt>
+                                    <notEqual>
+                                        <dataItem>
+                                            <property>state/@severity</property>
+                                        </dataItem>
+                                        <severity>critical</severity>
+                                    </notEqual>
+                                </and>
+                                <transaction>
+                                    <update>
+                                        <property>state/@severity</property>
+                                        <severity>critical</severity>
+                                    </update>
+                                </transaction>
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+    </ruleGroup>
+    <ruleGroup name="MessageVPNBridgeRates">
+        <rule name="Out of Order Segments">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;MessageVPNBridgeRates&quot;)]/rows/row/cell[(@column=&quot;Out of Order Segments&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <block>
+                <!-- Rule to monitor the counter going up for various failures -->
+                <set>
+                    <var ref="high_threshold"></var>
+                    <integer>1</integer>
+                </set>
+                <set>
+                    <var ref="exceed_threshold"></var>
+                    <integer>300</integer>
+                </set>
+                <set>
+                    <var ref="value"></var>
+                    <subtract>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <dataItem>
+                            <property>@value</property>
+                            <previous>true</previous>
+                        </dataItem>
+                    </subtract>
+                </set>
+                <if>
+                    <and>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <equal>
+                            <dataItem>
+                                <property>state/@severity</property>
+                            </dataItem>
+                            <severity>undefined</severity>
+                        </equal>
+                    </and>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <transaction>
+                            <delay>300</delay>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <and>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="high_threshold"></var>
+                                    </gte>
+                                    <lte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </lte>
+                                </and>
+                                <notEqual>
+                                    <dataItem>
+                                        <property>state/@severity</property>
+                                    </dataItem>
+                                    <severity>warning</severity>
+                                </notEqual>
+                            </and>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <if>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </gte>
+                                    <notEqual>
+                                        <dataItem>
+                                            <property>state/@severity</property>
+                                        </dataItem>
+                                        <severity>critical</severity>
+                                    </notEqual>
+                                </and>
+                                <transaction>
+                                    <update>
+                                        <property>state/@severity</property>
+                                        <severity>critical</severity>
+                                    </update>
+                                </transaction>
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Fast and Timed Retransmits">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;MessageVPNBridgeRates&quot;)]/rows/row/cell[wild(@column,&quot;*Retransmits&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <block>
+                <!-- Rule to monitor the counter going up for various failures -->
+                <set>
+                    <var ref="high_threshold"></var>
+                    <integer>1</integer>
+                </set>
+                <set>
+                    <var ref="exceed_threshold"></var>
+                    <integer>300</integer>
+                </set>
+                <set>
+                    <var ref="value"></var>
+                    <subtract>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <dataItem>
+                            <property>@value</property>
+                            <previous>true</previous>
+                        </dataItem>
+                    </subtract>
+                </set>
+                <if>
+                    <and>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <equal>
+                            <dataItem>
+                                <property>state/@severity</property>
+                            </dataItem>
+                            <severity>undefined</severity>
+                        </equal>
+                    </and>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <transaction>
+                            <delay>300</delay>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <and>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="high_threshold"></var>
+                                    </gte>
+                                    <lte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </lte>
+                                </and>
+                                <notEqual>
+                                    <dataItem>
+                                        <property>state/@severity</property>
+                                    </dataItem>
+                                    <severity>warning</severity>
+                                </notEqual>
+                            </and>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <if>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </gte>
+                                    <notEqual>
+                                        <dataItem>
+                                            <property>state/@severity</property>
+                                        </dataItem>
+                                        <severity>critical</severity>
+                                    </notEqual>
+                                </and>
+                                <transaction>
+                                    <update>
+                                        <property>state/@severity</property>
+                                        <severity>critical</severity>
+                                    </update>
+                                </transaction>
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="BlockedPercentage">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;MessageVPNBridgeRates&quot;)]/rows/row/cell[(@column=&quot;Blocked%&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <block>
+                <!-- Rule to monitor the counter going up for various failures -->
+                <set>
+                    <var ref="high_threshold"></var>
+                    <integer>1</integer>
+                </set>
+                <set>
+                    <var ref="exceed_threshold"></var>
+                    <integer>5</integer>
+                </set>
+                <set>
+                    <var ref="value"></var>
+                    <subtract>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <dataItem>
+                            <property>@value</property>
+                            <previous>true</previous>
+                        </dataItem>
+                    </subtract>
+                </set>
+                <if>
+                    <and>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <equal>
+                            <dataItem>
+                                <property>state/@severity</property>
+                            </dataItem>
+                            <severity>undefined</severity>
+                        </equal>
+                    </and>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <var ref="value"></var>
+                            <var ref="high_threshold"></var>
+                        </lt>
+                        <transaction>
+                            <delay>300</delay>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <and>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="high_threshold"></var>
+                                    </gte>
+                                    <lte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </lte>
+                                </and>
+                                <notEqual>
+                                    <dataItem>
+                                        <property>state/@severity</property>
+                                    </dataItem>
+                                    <severity>warning</severity>
+                                </notEqual>
+                            </and>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <if>
+                                <and>
+                                    <gte>
+                                        <var ref="value"></var>
+                                        <var ref="exceed_threshold"></var>
+                                    </gte>
+                                    <notEqual>
+                                        <dataItem>
+                                            <property>state/@severity</property>
+                                        </dataItem>
+                                        <severity>critical</severity>
+                                    </notEqual>
+                                </and>
+                                <transaction>
+                                    <update>
+                                        <property>state/@severity</property>
+                                        <severity>critical</severity>
+                                    </update>
+                                </transaction>
+                            </if>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+    </ruleGroup>
+    <ruleGroup name="ConfigSyncStatus">
+        <rule name="Sync State">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ConfigSyncStatus&quot;)]/rows/row/cell[(@column=&quot;Sync State&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <block>
+                <!-- Rule to monitor the sync state -->
+                <if>
+                    <equal>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <string>In-Sync</string>
+                    </equal>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <equal>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <string>Out-Of-Sync</string>
+                        </equal>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>warning</severity>
+                            </update>
+                        </transaction>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>undefined</severity>
+                            </update>
+                        </transaction>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Remote Routers Out-Of-Sync or Stale">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ConfigSyncStatus&quot;)]/rows/row/cell[(@column=&quot;Remote Routers Count (Out-Of-Sync)&quot;)]</target>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ConfigSyncStatus&quot;)]/rows/row/cell[(@column=&quot;Remote Routers Count (Stale)&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <block>
+                <!-- Rule to monitor the counts of remote routers reporting Out-Of-Sync or Stale-->
+                <if>
+                    <equal>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <string></string>
+                    </equal>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>undefined</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <equal>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <integer>0</integer>
+                        </equal>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>ok</severity>
+                            </update>
+                        </transaction>
+                        <if>
+                            <gt>
+                                <dataItem>
+                                    <property>@value</property>
+                                </dataItem>
+                                <integer>0</integer>
+                            </gt>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>warning</severity>
+                                </update>
+                            </transaction>
+                            <transaction>
+                                <update>
+                                    <property>state/@severity</property>
+                                    <severity>undefined</severity>
+                                </update>
+                            </transaction>
+                        </if>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Remote Routers In-Sync">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ConfigSyncStatus&quot;)]/rows/row/cell[(@column=&quot;Remote Routers Count (In-Sync)&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <pathAliases>
+                <pathAlias name="Remote Routers Count">../cell[(@column=&quot;Remote Routers Count&quot;)]</pathAlias>
+            </pathAliases>
+            <block>
+                <!-- Rule to monitor the counts of remote routers reporting In-Sync-->
+                <set>
+                    <var ref="nRouters"></var>
+                    <dataItem>
+                        <pathAlias ref="Remote Routers Count"></pathAlias>
+                        <property>@value</property>
+                    </dataItem>
+                </set>
+                <if>
+                    <equal>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <var ref="nRouters"></var>
+                    </equal>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <lt>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <var ref="nRouters"></var>
+                        </lt>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>warning</severity>
+                            </update>
+                        </transaction>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>undefined</severity>
+                            </update>
+                        </transaction>
+                    </if>
+                </if>
+            </block>
+        </rule>
+        <rule name="Headline Counts">
+            <targets>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ConfigSyncStatus&quot;)]/headlines/cell[(@name=&quot;Entries Out-Of-Sync&quot;)]</target>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ConfigSyncStatus&quot;)]/headlines/cell[(@name=&quot;Entries with Remote Out-Of-Sync&quot;)]</target>
+                <target>/geneos/gateway/directory/probe/managedEntity/sampler/dataview[(@name=&quot;ConfigSyncStatus&quot;)]/headlines/cell[(@name=&quot;Entries with Remote Stale&quot;)]</target>
+            </targets>
+            <priority>100</priority>
+            <block>
+                <!-- Rule to monitor the counts of entries being stale or out-of-sync-->
+                <if>
+                    <equal>
+                        <dataItem>
+                            <property>@value</property>
+                        </dataItem>
+                        <integer>0</integer>
+                    </equal>
+                    <transaction>
+                        <update>
+                            <property>state/@severity</property>
+                            <severity>ok</severity>
+                        </update>
+                    </transaction>
+                    <if>
+                        <gt>
+                            <dataItem>
+                                <property>@value</property>
+                            </dataItem>
+                            <integer>0</integer>
+                        </gt>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>warning</severity>
+                            </update>
+                        </transaction>
+                        <transaction>
+                            <update>
+                                <property>state/@severity</property>
+                                <severity>undefined</severity>
+                            </update>
+                        </transaction>
+                    </if>
                 </if>
             </block>
         </rule>

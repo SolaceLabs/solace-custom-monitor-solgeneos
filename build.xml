@@ -191,6 +191,17 @@
 			<fileset dir="${basedir}/${dist.dir.name}/config"/>
 			<fileset dir="${basedir}/${dist.dir.name}/lib"/>
 		</chmod>
+		<!-- ConfigSyncStatus Monitor Jar: -->
+		<echo>create ${jarname.configsyncstatus.monitor}.jar in ${dist.dir.name}</echo>
+		<jar destfile="${basedir}/${dist.dir.name}/lib/${jarname.configsyncstatus.monitor}.jar">
+			<fileset dir="${basedir}/${output.dir.name}">
+				<include name="**/${filenamepattern.configsyncstatus.monitor}*.class"/>
+			</fileset>
+		</jar>			
+		<chmod perm="755">
+			<fileset dir="${basedir}/${dist.dir.name}/config"/>
+			<fileset dir="${basedir}/${dist.dir.name}/lib"/>
+		</chmod>
 	</target>
 	
 	<!-- build advanced -->
