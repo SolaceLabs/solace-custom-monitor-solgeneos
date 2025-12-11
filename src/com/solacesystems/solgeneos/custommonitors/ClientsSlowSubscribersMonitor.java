@@ -32,7 +32,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class ClientsSlowSubscribersMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.1.0";
+	static final public String MONITOR_VERSION = "1.1.1";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_CLIENTS_REQUEST_DETAIL = 
@@ -145,6 +145,7 @@ public class ClientsSlowSubscribersMonitor extends BaseMonitor implements Monito
 		// create a http client
 		httpClient = new DefaultHttpClient();
 		HttpParams httpParams = httpClient.getParams();
+		httpParams.setParameter("http.protocol.cookie-policy", "ignoreCookies");
 				
 		// set connection target
 	    HttpHost target = new HttpHost(host, port);

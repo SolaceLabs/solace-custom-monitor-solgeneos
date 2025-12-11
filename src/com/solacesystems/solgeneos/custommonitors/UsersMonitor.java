@@ -31,7 +31,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class UsersMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "0.6.7.2";
+	static final public String MONITOR_VERSION = "0.6.7.3";
 	
 	// The SEMP query to execute:
     static final public String SHOW_USERS_REQUEST = 
@@ -130,6 +130,7 @@ public class UsersMonitor extends BaseMonitor implements MonitorConstants {
         // create a http client
 		httpClient = new DefaultHttpClient();
 		HttpParams httpParams = httpClient.getParams();
+		httpParams.setParameter("http.protocol.cookie-policy", "ignoreCookies");
 				
 		// set connection target
 	    HttpHost target = new HttpHost(host, port);
