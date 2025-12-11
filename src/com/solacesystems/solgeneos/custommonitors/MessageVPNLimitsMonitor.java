@@ -36,7 +36,7 @@ import com.solacesystems.solgeneos.solgeneosagent.monitor.View;
 public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConstants {
   
 	// What version of the monitor?
-	static final public String MONITOR_VERSION = "1.1.2";
+	static final public String MONITOR_VERSION = "1.1.3";
 	
 	// The SEMP queries to execute:
     static final public String SHOW_VPN_DETAILS_REQUEST = 
@@ -218,6 +218,7 @@ public class MessageVPNLimitsMonitor extends BaseMonitor implements MonitorConst
 		// create a http client
 		httpClient = new DefaultHttpClient();
 		HttpParams httpParams = httpClient.getParams();
+		httpParams.setParameter("http.protocol.cookie-policy", "ignoreCookies");
 				
 		// set connection target
 	    HttpHost target = new HttpHost(host, port);
